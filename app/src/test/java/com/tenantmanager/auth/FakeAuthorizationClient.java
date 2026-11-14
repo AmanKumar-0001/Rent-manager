@@ -35,3 +35,4 @@ public class FakeAuthorizationClient implements AuthorizationClient {
         return null;
     }
 }
+
