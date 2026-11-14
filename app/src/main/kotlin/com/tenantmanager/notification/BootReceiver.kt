@@ -3,6 +3,7 @@ package com.tenantmanager.notification
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import com.tenantmanager.TenantApplication
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +26,8 @@ class BootReceiver : BroadcastReceiver() {
                         ?.reminderHour ?: 9
 
                     ReminderScheduler.scheduleDailyReminder(context, reminderHour)
+                } catch (e: Exception) {
+                    Log.w("BootReceiver", "Failed to reschedule daily reminder on boot: ${e.message}")
                 } finally {
                     pendingResult?.finish()
                 }

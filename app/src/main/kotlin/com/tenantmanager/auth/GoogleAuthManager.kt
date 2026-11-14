@@ -2,9 +2,11 @@ package com.tenantmanager.auth
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.util.Log
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
-import androidx.credentials.GetCredentialRequest
+import com.google.android.gms.auth.api.identity.AuthorizationClient
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.AuthorizationResult
 import com.google.android.gms.auth.api.identity.Identity
@@ -12,56 +14,115 @@ import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.CommonStatusCodes
 import com.google.android.gms.common.api.Scope
 import com.google.android.gms.tasks.Task
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
-data class GoogleSignInAccount(
-    val email: String,
-    val displayName: String?,
-    val idToken: String?
-)
-
-open class GoogleAuthManager(private val context: Context) {
-
-    private val credentialManager = CredentialManager.create(context)
+open class GoogleAuthManager(
+    private val context: Context,
+    private val client: AuthorizationClient? = null,
+    private val serverClientId: String? = null
+) {
+    private val TAG = "GoogleAuthManager"
+    private val credentialManager by lazy { CredentialManager.create(context) }
     private val driveFileScope = Scope(SCOPE_DRIVE_FILE)
 
-    open suspend fun getAccessToken(): Result<String> {
-        return try {
-            val authorizationClient = Identity.getAuthorizationClient(context)
-            val request = AuthorizationRequest.builder()
-                .setRequestedScopes(listOf(driveFileScope))
-                .build()
+    val authorizationClient: AuthorizationClient
+        get() = client ?: Identity.getAuthorizationClient(context)
 
-            val authResult = authorizationClient.authorize(request).await()
-            val token = authResult.accessToken
-            if (!token.isNullOrBlank()) {
-                Result.success(token)
+    fun buildAuthorizationRequest(): AuthorizationRequest {
+        val builder = AuthorizationRequest.builder()
+            .setRequestedScopes(listOf(driveFileScope))
+        if (!serverClientId.isNullOrBlank()) {
+            builder.requestOfflineAccess(serverClientId)
+        }
+        return builder.build()
+    }
+
+    /**
+     * Step 1 of Sign-In: Requests authorization for https://www.googleapis.com/auth/drive.file scope.
+     * If the user has not yet consented, the returned AuthorizationResult has hasResolution() == true
+     * and a non-null pendingIntent that must be launched via an ActivityResultLauncher.
+     * If the user already authorized, hasResolution() == false and accessToken is available immediately.
+     */
+    open suspend fun requestAuthorization(activity: Activity? = null): Result<AuthorizationResult> {
+        return try {
+            val authClient = client ?: if (activity != null) {
+                Identity.getAuthorizationClient(activity)
             } else {
-                Result.failure(SecurityException("Access token not available. User authorization required."))
+                authorizationClient
             }
+            val request = buildAuthorizationRequest()
+            val authResult = authClient.authorize(request).await()
+            Result.success(authResult)
         } catch (e: ApiException) {
-            val msg = parseApiException(e)
+            val msg = formatApiExceptionMessage(e)
+            Log.w(TAG, "Authorization failed with ApiException statusCode=${e.statusCode}: ${e.status.statusMessage}")
             Result.failure(SecurityException(msg, e))
         } catch (e: Exception) {
+            Log.w(TAG, "Authorization failed with exception: ${e::class.java.simpleName}")
             Result.failure(e)
         }
     }
 
-    open suspend fun requestAuthorization(activity: Activity): Result<AuthorizationResult> {
+    /**
+     * Step 2 of Sign-In: Handles the result from the ActivityResultLauncher after launching the pendingIntent.
+     * For an Android OAuth client, the access token is returned directly in the AuthorizationResult.
+     */
+    open fun handleAuthorizationResult(resultCode: Int, data: Intent?): Result<AuthorizationResult> {
+        if (resultCode == Activity.RESULT_CANCELED) {
+            Log.w(TAG, "Authorization resolution was cancelled by user (RESULT_CANCELED)")
+            return Result.failure(SecurityException("Google sign-in was cancelled."))
+        }
+        if (resultCode != Activity.RESULT_OK) {
+            Log.w(TAG, "Authorization resolution failed with resultCode=$resultCode")
+            return Result.failure(SecurityException("Google sign-in did not finish. Check that Google Play Services is up to date and try again."))
+        }
+        if (data == null) {
+            Log.w(TAG, "Authorization resolution succeeded but Intent data was null")
+            return Result.failure(SecurityException("Google sign-in did not finish. Check that Google Play Services is up to date and try again."))
+        }
         return try {
-            val authorizationClient = Identity.getAuthorizationClient(activity)
-            val request = AuthorizationRequest.builder()
-                .setRequestedScopes(listOf(driveFileScope))
-                .build()
-
-            val authResult = authorizationClient.authorize(request).await()
+            val authResult = authorizationClient.getAuthorizationResultFromIntent(data)
             Result.success(authResult)
         } catch (e: ApiException) {
-            val msg = parseApiException(e)
-            Result.failure(Exception(msg, e))
+            val msg = formatApiExceptionMessage(e)
+            Log.w(TAG, "getAuthorizationResultFromIntent failed with ApiException statusCode=${e.statusCode}: ${e.status.statusMessage}")
+            Result.failure(SecurityException(msg, e))
         } catch (e: Exception) {
+            Log.w(TAG, "getAuthorizationResultFromIntent failed with exception: ${e::class.java.simpleName}")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Requests a fresh access token before each sync.
+     * Calls authorize() silently. If user consent was revoked or expired, hasResolution() will be true,
+     * in which case this returns failure prompting the user to reconnect in Settings.
+     * Access tokens are never stored in plain text or persisted on disk.
+     */
+    open suspend fun getAccessToken(): Result<String> {
+        return try {
+            val request = buildAuthorizationRequest()
+            val authResult = authorizationClient.authorize(request).await()
+            if (authResult.hasResolution()) {
+                Log.w(TAG, "getAccessToken: authorization requires user resolution (consent expired or revoked)")
+                Result.failure(SecurityException("Google authorization expired or revoked. Please reconnect in Settings."))
+            } else {
+                val token = authResult.accessToken
+                if (!token.isNullOrBlank()) {
+                    Result.success(token)
+                } else {
+                    Log.w(TAG, "getAccessToken: access token was null/blank in result")
+                    Result.failure(SecurityException("Google authorization expired or revoked. Please reconnect in Settings."))
+                }
+            }
+        } catch (e: ApiException) {
+            val msg = formatApiExceptionMessage(e)
+            Log.w(TAG, "getAccessToken failed with ApiException statusCode=${e.statusCode}: ${e.status.statusMessage}")
+            Result.failure(SecurityException(msg, e))
+        } catch (e: Exception) {
+            Log.w(TAG, "getAccessToken failed with exception: ${e::class.java.simpleName}")
             Result.failure(e)
         }
     }
@@ -75,26 +136,35 @@ open class GoogleAuthManager(private val context: Context) {
             }
             Result.success(Unit)
         } catch (e: Exception) {
+            Log.w(TAG, "signOut failed: ${e::class.java.simpleName}")
             Result.failure(e)
         }
     }
 
-    private fun parseApiException(e: ApiException): String {
+    fun formatApiExceptionMessage(e: ApiException): String {
         return when (e.statusCode) {
-            CommonStatusCodes.DEVELOPER_ERROR -> { // Code 10
-                "Developer error (code 10): SHA-1 fingerprint or package name (com.tenantmanager) is not configured in Google Cloud Console OAuth 2.0 Client IDs."
+            CommonStatusCodes.CANCELED -> { // 16
+                "Google sign-in was cancelled."
+            }
+            CommonStatusCodes.DEVELOPER_ERROR -> { // 10
+                "Google sign-in failed (code 10). The app's package name (com.tenantmanager) or SHA-1 fingerprint is not registered in Google Cloud Console."
             }
             12500 -> { // SIGN_IN_FAILED
-                "Sign-in failed (code 12500): Check Google Play Services, OAuth consent screen, and ensure an OAuth client ID is created."
+                "Google sign-in did not finish. Check that Google Play Services is up to date and try again."
             }
-            CommonStatusCodes.NETWORK_ERROR -> {
+            CommonStatusCodes.NETWORK_ERROR -> { // 7
                 "Network error: Unable to reach Google servers. Please check your internet connection."
             }
-            CommonStatusCodes.CANCELED -> {
-                "Sign-in was canceled by the user."
+            CommonStatusCodes.TIMEOUT -> { // 15
+                "Connection timed out. Please check your internet connection and try again."
+            }
+            CommonStatusCodes.API_NOT_CONNECTED,
+            CommonStatusCodes.SERVICE_VERSION_UPDATE_REQUIRED,
+            CommonStatusCodes.SERVICE_DISABLED -> {
+                "Google Play Services is unavailable or out of date. Please update Google Play Services and try again."
             }
             else -> {
-                "Google authentication error (code ${e.statusCode}): ${e.localizedMessage ?: "Unknown error"}"
+                "Google sign-in did not finish. Check that Google Play Services is up to date and try again."
             }
         }
     }
@@ -104,10 +174,22 @@ open class GoogleAuthManager(private val context: Context) {
     }
 }
 
-private suspend fun <T> Task<T>.await(): T =
-    suspendCancellableCoroutine { cont ->
-        addOnSuccessListener { result -> cont.resumeWith(kotlin.Result.success(result)) }
-        addOnFailureListener { exception -> cont.resumeWith(kotlin.Result.failure(exception)) }
-        addOnCanceledListener { cont.cancel() }
+internal suspend fun <T> Task<T>.await(): T {
+    if (isComplete) {
+        val e = exception
+        return if (e != null) {
+            throw e
+        } else if (isCanceled) {
+            throw kotlinx.coroutines.CancellationException("Task $this was cancelled.")
+        } else {
+            @Suppress("UNCHECKED_CAST")
+            result as T
+        }
     }
 
+    return suspendCancellableCoroutine { cont ->
+        addOnSuccessListener { result -> cont.resume(result) }
+        addOnFailureListener { exception -> cont.resumeWithException(exception) }
+        addOnCanceledListener { cont.cancel() }
+    }
+}

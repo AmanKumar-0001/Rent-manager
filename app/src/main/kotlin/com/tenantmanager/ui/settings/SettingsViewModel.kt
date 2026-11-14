@@ -2,6 +2,8 @@ package com.tenantmanager.ui.settings
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.content.IntentSender
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -34,6 +36,7 @@ import kotlinx.coroutines.launch
 sealed class BackupEvent {
     data class ExportPlaintextReady(val json: String) : BackupEvent()
     data class ExportEncryptedReady(val bytes: ByteArray) : BackupEvent()
+    data class LaunchAuthResolution(val intentSender: IntentSender) : BackupEvent()
     data class Success(val message: String) : BackupEvent()
     data class Error(val message: String) : BackupEvent()
 }
@@ -151,22 +154,51 @@ class SettingsViewModel(
     }
 
     // Google Sheets Sync
-    fun signInWithGoogle(activity: Activity) {
+    fun signInWithGoogle(activity: Activity? = null) {
         if (!isSyncSupported) return
 
         viewModelScope.launch {
             val authResult = googleAuthManager.requestAuthorization(activity)
-            if (authResult.isSuccess) {
-                val tokenResult = googleAuthManager.getAccessToken()
-                if (tokenResult.isSuccess) {
-                    syncRepository.updateGoogleAccount(true, "Connected Google Account")
+            authResult.onSuccess { result ->
+                if (result.hasResolution()) {
+                    val pendingIntent = result.pendingIntent
+                    if (pendingIntent != null) {
+                        _backupEvent.emit(BackupEvent.LaunchAuthResolution(pendingIntent.intentSender))
+                    } else {
+                        _backupEvent.emit(BackupEvent.Error("Google sign-in did not finish. Check that Google Play Services is up to date and try again."))
+                    }
+                } else {
+                    val token = result.accessToken
+                    if (!token.isNullOrBlank()) {
+                        val email = result.toGoogleSignInAccount()?.email ?: "Connected Google Account"
+                        syncRepository.updateGoogleAccount(true, email)
+                        _backupEvent.emit(BackupEvent.Success("Connected to Google Drive & Sheets!"))
+                    } else {
+                        _backupEvent.emit(BackupEvent.Error("Google sign-in did not finish. Access token not returned."))
+                    }
+                }
+            }.onFailure { e ->
+                val msg = e.message ?: "Google sign-in did not finish. Check that Google Play Services is up to date and try again."
+                _backupEvent.emit(BackupEvent.Error(msg))
+            }
+        }
+    }
+
+    fun onAuthorizationResult(resultCode: Int, data: Intent?) {
+        viewModelScope.launch {
+            val authResult = googleAuthManager.handleAuthorizationResult(resultCode, data)
+            authResult.onSuccess { result ->
+                val token = result.accessToken
+                if (!token.isNullOrBlank()) {
+                    val email = result.toGoogleSignInAccount()?.email ?: "Connected Google Account"
+                    syncRepository.updateGoogleAccount(true, email)
                     _backupEvent.emit(BackupEvent.Success("Connected to Google Drive & Sheets!"))
                 } else {
-                    _backupEvent.emit(BackupEvent.Error("Authorization acquired, but token request failed."))
+                    _backupEvent.emit(BackupEvent.Error("Google sign-in did not finish. Access token not returned."))
                 }
-            } else {
-                val err = authResult.exceptionOrNull()?.message ?: "Google sign in failed"
-                _backupEvent.emit(BackupEvent.Error(err))
+            }.onFailure { e ->
+                val msg = e.message ?: "Google sign-in did not finish. Check that Google Play Services is up to date and try again."
+                _backupEvent.emit(BackupEvent.Error(msg))
             }
         }
     }

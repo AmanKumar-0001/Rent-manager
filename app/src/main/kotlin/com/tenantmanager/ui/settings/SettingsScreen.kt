@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -164,6 +165,13 @@ fun SettingsScreen(
         }
     }
 
+    // Google Identity Authorization resolution launcher
+    val authLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        viewModel.onAuthorizationResult(result.resultCode, result.data)
+    }
+
     LaunchedEffect(Unit) {
         viewModel.backupEvent.collect { event ->
             when (event) {
@@ -174,6 +182,10 @@ fun SettingsScreen(
                 is BackupEvent.ExportEncryptedReady -> {
                     pendingExportBytes = event.bytes
                     createEncryptedFileLauncher.launch("collect_your_rent_backup_${System.currentTimeMillis()}.enc")
+                }
+                is BackupEvent.LaunchAuthResolution -> {
+                    val intentSenderRequest = IntentSenderRequest.Builder(event.intentSender).build()
+                    authLauncher.launch(intentSenderRequest)
                 }
                 is BackupEvent.Success -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
