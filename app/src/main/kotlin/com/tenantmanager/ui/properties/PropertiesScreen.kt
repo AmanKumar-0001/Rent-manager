@@ -143,10 +143,10 @@ fun PropertiesScreen(
                                     propertyToEdit = item.property
                                     showAddEditDialog = true
                                 }) {
-                                    Icon(Icons.Default.Edit, contentDescription = "Edit")
+                                    Icon(Icons.Default.Edit, contentDescription = "Edit property ${item.property.name}")
                                 }
                                 IconButton(onClick = { propertyToDelete = item }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete property ${item.property.name}", tint = MaterialTheme.colorScheme.error)
                                 }
                             }
                         }

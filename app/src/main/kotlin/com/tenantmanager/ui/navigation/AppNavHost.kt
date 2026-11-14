@@ -61,8 +61,8 @@ data class BottomNavItem(
 @Composable
 fun AppNavHost(
     app: TenantApplication,
-    navController: NavHostController = rememberNavController(),
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    navController: NavHostController = rememberNavController()
 ) {
     val container = app.container
     val coroutineScope = rememberCoroutineScope()
