@@ -1,5 +1,8 @@
 package com.tenantmanager.ui.settings
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,10 +20,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Apartment
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Upload
@@ -33,6 +38,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -53,6 +59,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import com.tenantmanager.notification.ReminderScheduler
 import com.tenantmanager.ui.components.ConfirmDialog
 import com.tenantmanager.ui.components.DangerZoneTypedConfirmDialog
 
@@ -111,6 +119,28 @@ fun SettingsScreen(
                 pendingImportContent = content
                 showImportConfirmDialog = true
             }
+        }
+    }
+
+    // Notification permission state
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    val requestPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasNotificationPermission = isGranted
+        if (isGranted) {
+            Toast.makeText(context, "Notification permission granted", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Notification permission denied", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -192,6 +222,49 @@ fun SettingsScreen(
                         )
                         Text("Number of buffer days after due date before tenant is marked OVERDUE.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                }
+            }
+
+            // Rent Reminders & Notifications
+            Text("Rent Reminders & Notifications", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    // Android 13+ Permission Rationale Flow
+                    if (!hasNotificationPermission) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                                    Spacer(modifier = Modifier.padding(4.dp))
+                                    Text("Enable Rent Due Notifications", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                }
+                                Text(
+                                    "Tenant Manager uses notifications strictly to remind you when rent is due soon or overdue. The app is completely offline and private — notifications contain rent reminders only, with no marketing, tracking, or advertisements.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Button(
+                                    onClick = {
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                            requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                        }
+                                    },
+                                    modifier = Modifier.align(Alignment.End)
+                                ) {
+                                    Text("Grant Permission")
+                                }
+                            }
+                        }
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.padding(4.dp))
+                            Text("Rent reminder notifications are active", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
 
                     HorizontalDivider()
 
@@ -205,11 +278,30 @@ fun SettingsScreen(
                         }
                         Slider(
                             value = settings.reminderHour.toFloat(),
-                            onValueChange = { viewModel.updateReminderHour(it.toInt()) },
+                            onValueChange = {
+                                val hour = it.toInt()
+                                viewModel.updateReminderHour(hour)
+                                ReminderScheduler.scheduleDailyReminder(context, hour)
+                            },
                             valueRange = 6f..22f,
                             steps = 15
                         )
-                        Text("Approximate local hour for daily rent notification check.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("WorkManager checks rent status daily at ${settings.reminderHour}:00 with battery-not-low constraint. Deduplication persists across reboots so you never receive duplicate alerts.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
+                    HorizontalDivider()
+
+                    // Manual trigger
+                    OutlinedButton(
+                        onClick = {
+                            ReminderScheduler.triggerImmediate(context)
+                            Toast.makeText(context, "Checking tenant rent statuses...", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.NotificationsActive, contentDescription = null)
+                        Spacer(modifier = Modifier.padding(4.dp))
+                        Text("Check & Send Reminders Now (Manual Trigger)")
                     }
                 }
             }
