@@ -100,3 +100,4 @@ All 13 domain business rule scenarios are implemented in `:core:domain` unit tes
 - **Checkpoint 3:** Room schema v1, encrypted AES-GCM + PBKDF2 backup round-trip, migration scaffold. *(PASSED)*
 - **Checkpoint 4:** Complete Jetpack Compose Material 3 UI, ViewModels, navigation, and unit/UI tests. *(PASSED)*
 - **Checkpoint 5:** WorkManager notifications, Room-persisted deduplication, Android 13+ permission rationale, `BootReceiver`. *(PASSED)*
+

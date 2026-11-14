@@ -42,5 +42,25 @@ class MigrationScaffoldTest {
         assertThat(tableNames).contains("payments")
         assertThat(tableNames).contains("alert_history")
     }
+
+    @Test
+    fun testMigrateVersion1To2() {
+        var db = helper.createDatabase(testDbName, 1)
+        db.close()
+
+        // Run migration to version 2
+        db = helper.runMigrationsAndValidate(testDbName, 2, true, AppDatabase.MIGRATION_1_2)
+        assertThat(db.version).isEqualTo(2)
+
+        val cursor = db.query("SELECT name FROM sqlite_master WHERE type='table'")
+        val tableNames = mutableListOf<String>()
+        while (cursor.moveToNext()) {
+            tableNames.add(cursor.getString(0))
+        }
+        cursor.close()
+        db.close()
+
+        assertThat(tableNames).contains("sync_logs")
+    }
 }
 

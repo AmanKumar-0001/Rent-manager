@@ -1,13 +1,25 @@
 package com.tenantmanager.ui.settings
 
+import android.app.Activity
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.tenantmanager.BuildConfig
+import com.tenantmanager.auth.GoogleAuthManager
 import com.tenantmanager.data.backup.BackupExporter
 import com.tenantmanager.data.backup.BackupImporter
 import com.tenantmanager.domain.repository.AppSettings
+import com.tenantmanager.domain.repository.PaymentRepository
+import com.tenantmanager.domain.repository.PropertyRepository
 import com.tenantmanager.domain.repository.SettingsRepository
+import com.tenantmanager.domain.repository.SheetsSyncSettings
+import com.tenantmanager.domain.repository.SyncRepository
 import com.tenantmanager.domain.repository.TenantRepository
+import com.tenantmanager.domain.sync.RemoteMirror
+import com.tenantmanager.domain.sync.SyncResult
+import com.tenantmanager.domain.sync.SyncSnapshot
+import com.tenantmanager.sync.SyncScheduler
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -15,6 +27,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -28,8 +41,14 @@ sealed class BackupEvent {
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
     private val tenantRepository: TenantRepository,
+    private val propertyRepository: PropertyRepository,
+    private val paymentRepository: PaymentRepository,
+    private val syncRepository: SyncRepository,
+    private val remoteMirror: RemoteMirror,
+    private val googleAuthManager: GoogleAuthManager,
     private val backupExporter: BackupExporter,
-    private val backupImporter: BackupImporter
+    private val backupImporter: BackupImporter,
+    val isSyncSupported: Boolean = BuildConfig.SYNC_ENABLED
 ) : ViewModel() {
 
     val settings: StateFlow<AppSettings> = settingsRepository.getSettings().stateIn(
@@ -37,6 +56,15 @@ class SettingsViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = AppSettings()
     )
+
+    val syncSettings: StateFlow<SheetsSyncSettings> = syncRepository.getSyncSettings().stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = SheetsSyncSettings()
+    )
+
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
     private val _backupEvent = MutableSharedFlow<BackupEvent>()
     val backupEvent: SharedFlow<BackupEvent> = _backupEvent.asSharedFlow()
@@ -116,18 +144,139 @@ class SettingsViewModel(
         }
     }
 
+    // Google Sheets Sync
+    fun signInWithGoogle(activity: Activity) {
+        if (!isSyncSupported) return
+
+        viewModelScope.launch {
+            val authResult = googleAuthManager.requestAuthorization(activity)
+            if (authResult.isSuccess) {
+                val tokenResult = googleAuthManager.getAccessToken()
+                if (tokenResult.isSuccess) {
+                    syncRepository.updateGoogleAccount(true, "Connected Google Account")
+                    _backupEvent.emit(BackupEvent.Success("Connected to Google Drive & Sheets!"))
+                } else {
+                    _backupEvent.emit(BackupEvent.Error("Authorization acquired, but token request failed."))
+                }
+            } else {
+                val err = authResult.exceptionOrNull()?.message ?: "Google sign in failed"
+                _backupEvent.emit(BackupEvent.Error(err))
+            }
+        }
+    }
+
+    fun signOutGoogle() {
+        viewModelScope.launch {
+            googleAuthManager.signOut()
+            syncRepository.updateGoogleAccount(false, null)
+            _backupEvent.emit(BackupEvent.Success("Signed out of Google."))
+        }
+    }
+
+    fun updateIncludeNotesInSheet(include: Boolean) {
+        viewModelScope.launch {
+            syncRepository.updateIncludeNotesInSheet(include)
+        }
+    }
+
+    fun updateAutoSyncEnabled(enabled: Boolean, context: Context) {
+        viewModelScope.launch {
+            syncRepository.updateAutoSyncEnabled(enabled)
+            if (enabled) {
+                SyncScheduler.scheduleDailyAutoSync(context)
+            } else {
+                SyncScheduler.cancelAutoSync(context)
+            }
+        }
+    }
+
+    fun syncNow() {
+        if (!isSyncSupported) {
+            viewModelScope.launch {
+                _backupEvent.emit(BackupEvent.Error("Sheets sync is disabled in this flavor."))
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            val currentSyncSettings = syncSettings.value
+            if (!currentSyncSettings.isGoogleSignedIn) {
+                _backupEvent.emit(BackupEvent.Error("Please connect your Google Account first."))
+                return@launch
+            }
+
+            _isSyncing.value = true
+            try {
+                val tokenResult = googleAuthManager.getAccessToken()
+                if (tokenResult.isFailure) {
+                    val err = tokenResult.exceptionOrNull()?.message ?: "Could not retrieve access token."
+                    val isRevoked = tokenResult.exceptionOrNull() is SecurityException
+                    syncRepository.recordSyncResult(SyncResult.Failure(err, isAuthRevoked = isRevoked))
+                    _backupEvent.emit(BackupEvent.Error(err))
+                    return@launch
+                }
+
+                val accessToken = tokenResult.getOrThrow()
+                val properties = propertyRepository.getAllProperties().first()
+                val tenants = tenantRepository.getAllTenants().first()
+                val payments = paymentRepository.getAllPayments().first()
+                val appSettings = settings.value
+
+                val snapshot = SyncSnapshot(
+                    properties = properties,
+                    tenants = tenants,
+                    payments = payments,
+                    includeNotes = currentSyncSettings.includeNotesInSheet,
+                    currencySymbol = appSettings.currencySymbol
+                )
+
+                val result = remoteMirror.sync(snapshot, accessToken)
+                syncRepository.recordSyncResult(result)
+
+                when (result) {
+                    is SyncResult.Success -> {
+                        _backupEvent.emit(BackupEvent.Success("Synced ${result.itemsCount} records to Google Sheet!"))
+                    }
+                    is SyncResult.Failure -> {
+                        _backupEvent.emit(BackupEvent.Error(result.error))
+                    }
+                }
+            } catch (e: Exception) {
+                _backupEvent.emit(BackupEvent.Error("Sync error: ${e.message}"))
+            } finally {
+                _isSyncing.value = false
+            }
+        }
+    }
+
     companion object {
         fun provideFactory(
             settingsRepository: SettingsRepository,
             tenantRepository: TenantRepository,
+            propertyRepository: PropertyRepository,
+            paymentRepository: PaymentRepository,
+            syncRepository: SyncRepository,
+            remoteMirror: RemoteMirror,
+            googleAuthManager: GoogleAuthManager,
             backupExporter: BackupExporter,
-            backupImporter: BackupImporter
+            backupImporter: BackupImporter,
+            isSyncSupported: Boolean = BuildConfig.SYNC_ENABLED
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return SettingsViewModel(settingsRepository, tenantRepository, backupExporter, backupImporter) as T
+                return SettingsViewModel(
+                    settingsRepository,
+                    tenantRepository,
+                    propertyRepository,
+                    paymentRepository,
+                    syncRepository,
+                    remoteMirror,
+                    googleAuthManager,
+                    backupExporter,
+                    backupImporter,
+                    isSyncSupported
+                ) as T
             }
         }
     }
 }
-

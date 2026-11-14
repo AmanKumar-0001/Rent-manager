@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.tenantmanager.domain.model.MoneyTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-14T15:08:09" hostname="DESKTOP-VN0NG9R" time="0.004">
-  <properties/>
-  <testcase name="testFormatINRGrouping" classname="com.tenantmanager.domain.model.MoneyTest" time="0.004"/>
-  <testcase name="testComparisonAndZero" classname="com.tenantmanager.domain.model.MoneyTest" time="0.0"/>
-  <testcase name="testMoneyArithmetic" classname="com.tenantmanager.domain.model.MoneyTest" time="0.0"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

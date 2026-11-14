@@ -193,10 +193,15 @@ fun AppNavHost(
             composable(Destination.Settings.route) {
                 val viewModel: SettingsViewModel = viewModel(
                     factory = SettingsViewModel.provideFactory(
-                        container.settingsRepository,
-                        container.tenantRepository,
-                        container.backupExporter,
-                        container.backupImporter
+                        settingsRepository = container.settingsRepository,
+                        tenantRepository = container.tenantRepository,
+                        propertyRepository = container.propertyRepository,
+                        paymentRepository = container.paymentRepository,
+                        syncRepository = container.syncRepository,
+                        remoteMirror = container.remoteMirror,
+                        googleAuthManager = container.googleAuthManager,
+                        backupExporter = container.backupExporter,
+                        backupImporter = container.backupImporter
                     )
                 )
                 SettingsScreen(

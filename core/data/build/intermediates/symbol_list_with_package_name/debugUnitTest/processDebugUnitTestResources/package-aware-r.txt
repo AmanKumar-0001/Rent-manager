@@ -1,3 +1,0 @@
-com.tenantmanager.data.test
-style WhiteBackgroundDialogTheme
-style WhiteBackgroundTheme

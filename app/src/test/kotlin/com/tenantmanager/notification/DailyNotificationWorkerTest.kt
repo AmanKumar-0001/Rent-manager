@@ -69,6 +69,15 @@ class DailyNotificationWorkerTest {
         val paymentRepo = PaymentRepositoryImpl(database.paymentDao())
         val exporter = BackupExporter(database)
         val importer = BackupImporter(database)
+        val fakeSyncRepo = object : com.tenantmanager.domain.repository.SyncRepository {
+            override fun getSyncSettings(): Flow<com.tenantmanager.domain.repository.SheetsSyncSettings> = 
+                MutableStateFlow(com.tenantmanager.domain.repository.SheetsSyncSettings()).asStateFlow()
+            override suspend fun updateGoogleAccount(isSignedIn: Boolean, email: String?) {}
+            override suspend fun updateIncludeNotesInSheet(include: Boolean) {}
+            override suspend fun updateAutoSyncEnabled(enabled: Boolean) {}
+            override suspend fun updateSpreadsheetInfo(id: String, name: String) {}
+            override suspend fun recordSyncResult(result: com.tenantmanager.domain.sync.SyncResult) {}
+        }
 
         testContainer = object : AppContainer {
             override val database: AppDatabase = this@DailyNotificationWorkerTest.database
@@ -76,6 +85,9 @@ class DailyNotificationWorkerTest {
             override val tenantRepository: TenantRepository = tenantRepo
             override val paymentRepository: PaymentRepository = paymentRepo
             override val settingsRepository: SettingsRepository = this@DailyNotificationWorkerTest.settingsRepository
+            override val syncRepository: com.tenantmanager.domain.repository.SyncRepository = fakeSyncRepo
+            override val remoteMirror: com.tenantmanager.domain.sync.RemoteMirror = com.tenantmanager.domain.sync.NoOpRemoteMirror()
+            override val googleAuthManager: com.tenantmanager.auth.GoogleAuthManager = com.tenantmanager.auth.GoogleAuthManager(context)
             override val backupExporter: BackupExporter = exporter
             override val backupImporter: BackupImporter = importer
         }

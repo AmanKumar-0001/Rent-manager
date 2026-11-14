@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.tenantmanager.data.local.MigrationScaffoldTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-14T15:13:58" hostname="DESKTOP-VN0NG9R" time="0.101">
-  <properties/>
-  <testcase name="testCreateSchemaVersion1" classname="com.tenantmanager.data.local.MigrationScaffoldTest" time="0.101"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>
