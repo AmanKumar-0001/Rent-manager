@@ -165,7 +165,7 @@ class SettingsViewModel(
                     if (pendingIntent != null) {
                         _backupEvent.emit(BackupEvent.LaunchAuthResolution(pendingIntent.intentSender))
                     } else {
-                        _backupEvent.emit(BackupEvent.Error("Google sign-in did not finish. Check that Google Play Services is up to date and try again."))
+                        _backupEvent.emit(BackupEvent.Error("Google sign-in did not finish. Check that Google Play Services is up to date and that this Google account is a test user in the Google Cloud project, then try again."))
                     }
                 } else {
                     val token = result.accessToken
@@ -174,11 +174,11 @@ class SettingsViewModel(
                         syncRepository.updateGoogleAccount(true, email)
                         _backupEvent.emit(BackupEvent.Success("Connected to Google Drive & Sheets!"))
                     } else {
-                        _backupEvent.emit(BackupEvent.Error("Google sign-in did not finish. Access token not returned."))
+                        _backupEvent.emit(BackupEvent.Error("Google sign-in did not finish. Check that Google Play Services is up to date and that this Google account is a test user in the Google Cloud project, then try again."))
                     }
                 }
             }.onFailure { e ->
-                val msg = e.message ?: "Google sign-in did not finish. Check that Google Play Services is up to date and try again."
+                val msg = e.message ?: "Google sign-in did not finish. Check that Google Play Services is up to date and that this Google account is a test user in the Google Cloud project, then try again."
                 _backupEvent.emit(BackupEvent.Error(msg))
             }
         }
@@ -194,10 +194,10 @@ class SettingsViewModel(
                     syncRepository.updateGoogleAccount(true, email)
                     _backupEvent.emit(BackupEvent.Success("Connected to Google Drive & Sheets!"))
                 } else {
-                    _backupEvent.emit(BackupEvent.Error("Google sign-in did not finish. Access token not returned."))
+                    _backupEvent.emit(BackupEvent.Error("Google sign-in did not finish. Check that Google Play Services is up to date and that this Google account is a test user in the Google Cloud project, then try again."))
                 }
             }.onFailure { e ->
-                val msg = e.message ?: "Google sign-in did not finish. Check that Google Play Services is up to date and try again."
+                val msg = e.message ?: "Google sign-in did not finish. Check that Google Play Services is up to date and that this Google account is a test user in the Google Cloud project, then try again."
                 _backupEvent.emit(BackupEvent.Error(msg))
             }
         }

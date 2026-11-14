@@ -54,44 +54,64 @@ open class GoogleAuthManager(
             }
             val request = buildAuthorizationRequest()
             val authResult = authClient.authorize(request).await()
+            if (!authResult.hasResolution() && !authResult.accessToken.isNullOrBlank()) {
+                Log.d(TAG, "Authorization request: success (code ${CommonStatusCodes.SUCCESS})")
+            }
             Result.success(authResult)
         } catch (e: ApiException) {
             val msg = formatApiExceptionMessage(e)
-            Log.w(TAG, "Authorization failed with ApiException statusCode=${e.statusCode}: ${e.status.statusMessage}")
+            Log.d(TAG, "Authorization request: ${if (e.statusCode == CommonStatusCodes.CANCELED) "cancelled" else "error"} (code ${e.statusCode})")
             Result.failure(SecurityException(msg, e))
         } catch (e: Exception) {
-            Log.w(TAG, "Authorization failed with exception: ${e::class.java.simpleName}")
+            Log.d(TAG, "Authorization request: error (code ${CommonStatusCodes.ERROR})")
             Result.failure(e)
         }
     }
 
     /**
      * Step 2 of Sign-In: Handles the result from the ActivityResultLauncher after launching the pendingIntent.
+     * In the result callback, success or cancellation is NOT decided from resultCode alone.
+     * Instead, Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(data) is inspected.
      * For an Android OAuth client, the access token is returned directly in the AuthorizationResult.
      */
     open fun handleAuthorizationResult(resultCode: Int, data: Intent?): Result<AuthorizationResult> {
-        if (resultCode == Activity.RESULT_CANCELED) {
-            Log.w(TAG, "Authorization resolution was cancelled by user (RESULT_CANCELED)")
-            return Result.failure(SecurityException("Google sign-in was cancelled."))
-        }
-        if (resultCode != Activity.RESULT_OK) {
-            Log.w(TAG, "Authorization resolution failed with resultCode=$resultCode")
-            return Result.failure(SecurityException("Google sign-in did not finish. Check that Google Play Services is up to date and try again."))
-        }
         if (data == null) {
-            Log.w(TAG, "Authorization resolution succeeded but Intent data was null")
-            return Result.failure(SecurityException("Google sign-in did not finish. Check that Google Play Services is up to date and try again."))
+            val statusCode = if (resultCode == Activity.RESULT_CANCELED) {
+                CommonStatusCodes.CANCELED
+            } else {
+                CommonStatusCodes.INTERNAL_ERROR
+            }
+            return if (statusCode == CommonStatusCodes.CANCELED) {
+                Log.d(TAG, "Authorization result: cancelled (code $statusCode)")
+                Result.failure(SecurityException("Google sign-in was cancelled. Tap Sign in with Google to try again."))
+            } else {
+                Log.d(TAG, "Authorization result: error (code $statusCode)")
+                Result.failure(SecurityException("Google sign-in did not finish. Check that Google Play Services is up to date and that this Google account is a test user in the Google Cloud project, then try again."))
+            }
         }
+
         return try {
             val authResult = authorizationClient.getAuthorizationResultFromIntent(data)
-            Result.success(authResult)
+            val token = authResult.accessToken
+            if (!token.isNullOrBlank()) {
+                Log.d(TAG, "Authorization result: success (code ${CommonStatusCodes.SUCCESS})")
+                Result.success(authResult)
+            } else {
+                Log.d(TAG, "Authorization result: error (code ${CommonStatusCodes.INTERNAL_ERROR})")
+                Result.failure(SecurityException("Google sign-in did not finish. Check that Google Play Services is up to date and that this Google account is a test user in the Google Cloud project, then try again."))
+            }
         } catch (e: ApiException) {
-            val msg = formatApiExceptionMessage(e)
-            Log.w(TAG, "getAuthorizationResultFromIntent failed with ApiException statusCode=${e.statusCode}: ${e.status.statusMessage}")
-            Result.failure(SecurityException(msg, e))
+            val statusCode = e.statusCode
+            if (statusCode == CommonStatusCodes.CANCELED) {
+                Log.d(TAG, "Authorization result: cancelled (code $statusCode)")
+                Result.failure(SecurityException("Google sign-in was cancelled. Tap Sign in with Google to try again.", e))
+            } else {
+                Log.d(TAG, "Authorization result: error (code $statusCode)")
+                Result.failure(SecurityException("Google sign-in did not finish. Check that Google Play Services is up to date and that this Google account is a test user in the Google Cloud project, then try again.", e))
+            }
         } catch (e: Exception) {
-            Log.w(TAG, "getAuthorizationResultFromIntent failed with exception: ${e::class.java.simpleName}")
-            Result.failure(e)
+            Log.d(TAG, "Authorization result: error (code ${CommonStatusCodes.ERROR})")
+            Result.failure(SecurityException("Google sign-in did not finish. Check that Google Play Services is up to date and that this Google account is a test user in the Google Cloud project, then try again.", e))
         }
     }
 
@@ -106,23 +126,24 @@ open class GoogleAuthManager(
             val request = buildAuthorizationRequest()
             val authResult = authorizationClient.authorize(request).await()
             if (authResult.hasResolution()) {
-                Log.w(TAG, "getAccessToken: authorization requires user resolution (consent expired or revoked)")
+                Log.d(TAG, "Authorization getAccessToken: resolution required")
                 Result.failure(SecurityException("Google authorization expired or revoked. Please reconnect in Settings."))
             } else {
                 val token = authResult.accessToken
                 if (!token.isNullOrBlank()) {
+                    Log.d(TAG, "Authorization getAccessToken: success (code ${CommonStatusCodes.SUCCESS})")
                     Result.success(token)
                 } else {
-                    Log.w(TAG, "getAccessToken: access token was null/blank in result")
+                    Log.d(TAG, "Authorization getAccessToken: error (missing accessToken)")
                     Result.failure(SecurityException("Google authorization expired or revoked. Please reconnect in Settings."))
                 }
             }
         } catch (e: ApiException) {
             val msg = formatApiExceptionMessage(e)
-            Log.w(TAG, "getAccessToken failed with ApiException statusCode=${e.statusCode}: ${e.status.statusMessage}")
+            Log.d(TAG, "Authorization getAccessToken: ${if (e.statusCode == CommonStatusCodes.CANCELED) "cancelled" else "error"} (code ${e.statusCode})")
             Result.failure(SecurityException(msg, e))
         } catch (e: Exception) {
-            Log.w(TAG, "getAccessToken failed with exception: ${e::class.java.simpleName}")
+            Log.d(TAG, "Authorization getAccessToken: error (code ${CommonStatusCodes.ERROR})")
             Result.failure(e)
         }
     }
@@ -144,27 +165,10 @@ open class GoogleAuthManager(
     fun formatApiExceptionMessage(e: ApiException): String {
         return when (e.statusCode) {
             CommonStatusCodes.CANCELED -> { // 16
-                "Google sign-in was cancelled."
-            }
-            CommonStatusCodes.DEVELOPER_ERROR -> { // 10
-                "Google sign-in failed (code 10). The app's package name (com.tenantmanager) or SHA-1 fingerprint is not registered in Google Cloud Console."
-            }
-            12500 -> { // SIGN_IN_FAILED
-                "Google sign-in did not finish. Check that Google Play Services is up to date and try again."
-            }
-            CommonStatusCodes.NETWORK_ERROR -> { // 7
-                "Network error: Unable to reach Google servers. Please check your internet connection."
-            }
-            CommonStatusCodes.TIMEOUT -> { // 15
-                "Connection timed out. Please check your internet connection and try again."
-            }
-            CommonStatusCodes.API_NOT_CONNECTED,
-            CommonStatusCodes.SERVICE_VERSION_UPDATE_REQUIRED,
-            CommonStatusCodes.SERVICE_DISABLED -> {
-                "Google Play Services is unavailable or out of date. Please update Google Play Services and try again."
+                "Google sign-in was cancelled. Tap Sign in with Google to try again."
             }
             else -> {
-                "Google sign-in did not finish. Check that Google Play Services is up to date and try again."
+                "Google sign-in did not finish. Check that Google Play Services is up to date and that this Google account is a test user in the Google Cloud project, then try again."
             }
         }
     }

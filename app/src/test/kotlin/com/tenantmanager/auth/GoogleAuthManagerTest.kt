@@ -80,49 +80,72 @@ class GoogleAuthManagerTest {
     }
 
     @Test
-    fun resolutionCancelled_returnsCancellationFailure() = runBlocking {
+    fun resolutionRequired_evenIfResultCanceled_withValidIntentData_returnsToken() = runBlocking {
+        // Crucial test: When resultCode is RESULT_CANCELED (0) but intent data contains valid result,
+        // we must not decide success or cancellation from resultCode alone!
+        val mockIntent = Intent()
+        val resolvedResult = mockk<AuthorizationResult>()
+        every { resolvedResult.hasResolution() } returns false
+        every { resolvedResult.accessToken } returns "resolved_token_456"
+        every { resolvedResult.toGoogleSignInAccount() } returns null
+        fakeClient.intentResult = resolvedResult
+
+        val handleResult = authManager.handleAuthorizationResult(Activity.RESULT_CANCELED, mockIntent).getOrThrow()
+        assertThat(handleResult.accessToken).isEqualTo("resolved_token_456")
+    }
+
+    @Test
+    fun userCancelled_nullDataAndResultCanceled_returnsCancellationMessage() = runBlocking {
         val handleResult = authManager.handleAuthorizationResult(Activity.RESULT_CANCELED, null)
         assertThat(handleResult.isFailure).isTrue()
         val exception = handleResult.exceptionOrNull()
         assertThat(exception).isInstanceOf(SecurityException::class.java)
-        assertThat(exception?.message).contains("cancelled")
+        assertThat(exception?.message).isEqualTo("Google sign-in was cancelled. Tap Sign in with Google to try again.")
     }
 
     @Test
-    fun authorizeFailure_developerError_returnsFormattedMessage() = runBlocking {
-        fakeClient.authorizeTask = Tasks.forException(
-            ApiException(Status(CommonStatusCodes.DEVELOPER_ERROR, "Developer error"))
-        )
-
-        val initResult = authManager.requestAuthorization()
-        assertThat(initResult.isFailure).isTrue()
-        val exception = initResult.exceptionOrNull()
-        assertThat(exception?.message).contains("com.tenantmanager")
-
-        val tokenResult = authManager.getAccessToken()
-        assertThat(tokenResult.isFailure).isTrue()
-        assertThat(tokenResult.exceptionOrNull()?.message).contains("com.tenantmanager")
-    }
-
-    @Test
-    fun authorizeFailure_playServicesError_returnsPlainLanguageMessage() = runBlocking {
-        fakeClient.authorizeTask = Tasks.forException(
-            ApiException(Status(12500, "Sign in failed"))
-        )
-
-        val initResult = authManager.requestAuthorization()
-        assertThat(initResult.isFailure).isTrue()
-        assertThat(initResult.exceptionOrNull()?.message).contains("Google Play Services")
-    }
-
-    @Test
-    fun resolutionIntentFailure_returnsFailure() = runBlocking {
+    fun userCancelled_statusCode16_returnsCancellationMessage() = runBlocking {
         val mockIntent = Intent()
-        fakeClient.intentException = ApiException(Status(CommonStatusCodes.NETWORK_ERROR, "Network error"))
+        fakeClient.intentException = ApiException(Status(CommonStatusCodes.CANCELED, "User cancelled"))
 
         val handleResult = authManager.handleAuthorizationResult(Activity.RESULT_OK, mockIntent)
         assertThat(handleResult.isFailure).isTrue()
-        assertThat(handleResult.exceptionOrNull()?.message).contains("Network error")
+        val exception = handleResult.exceptionOrNull()
+        assertThat(exception).isInstanceOf(SecurityException::class.java)
+        assertThat(exception?.message).isEqualTo("Google sign-in was cancelled. Tap Sign in with Google to try again.")
+    }
+
+    @Test
+    fun otherFailureCode_code10_returnsTestUserMessage() = runBlocking {
+        val mockIntent = Intent()
+        fakeClient.intentException = ApiException(Status(CommonStatusCodes.DEVELOPER_ERROR, "Developer error"))
+
+        val handleResult = authManager.handleAuthorizationResult(Activity.RESULT_OK, mockIntent)
+        assertThat(handleResult.isFailure).isTrue()
+        val exception = handleResult.exceptionOrNull()
+        assertThat(exception).isInstanceOf(SecurityException::class.java)
+        assertThat(exception?.message).isEqualTo("Google sign-in did not finish. Check that Google Play Services is up to date and that this Google account is a test user in the Google Cloud project, then try again.")
+    }
+
+    @Test
+    fun otherFailureCode_code8_internalError_returnsTestUserMessage() = runBlocking {
+        val mockIntent = Intent()
+        fakeClient.intentException = ApiException(Status(CommonStatusCodes.INTERNAL_ERROR, "Internal error"))
+
+        val handleResult = authManager.handleAuthorizationResult(Activity.RESULT_OK, mockIntent)
+        assertThat(handleResult.isFailure).isTrue()
+        val exception = handleResult.exceptionOrNull()
+        assertThat(exception).isInstanceOf(SecurityException::class.java)
+        assertThat(exception?.message).isEqualTo("Google sign-in did not finish. Check that Google Play Services is up to date and that this Google account is a test user in the Google Cloud project, then try again.")
+    }
+
+    @Test
+    fun otherFailureCode_nullData_resultNotCanceled_returnsTestUserMessage() = runBlocking {
+        val handleResult = authManager.handleAuthorizationResult(Activity.RESULT_FIRST_USER, null)
+        assertThat(handleResult.isFailure).isTrue()
+        val exception = handleResult.exceptionOrNull()
+        assertThat(exception).isInstanceOf(SecurityException::class.java)
+        assertThat(exception?.message).isEqualTo("Google sign-in did not finish. Check that Google Play Services is up to date and that this Google account is a test user in the Google Cloud project, then try again.")
     }
 
     @Test

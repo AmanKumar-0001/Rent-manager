@@ -2,6 +2,8 @@ package com.tenantmanager.ui.settings
 
 import android.Manifest
 import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -93,7 +95,7 @@ fun SettingsScreen(
     val syncSettings by viewModel.syncSettings.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
     val context = LocalContext.current
-    val activity = context as? Activity
+    val activity = context.findActivity() ?: (context as? Activity)
 
     var showCurrencyDialog by remember { mutableStateOf(false) }
     var showExportPassphraseDialog by remember { mutableStateOf(false) }
@@ -844,4 +846,10 @@ private fun PassphraseInputDialog(
             }
         }
     )
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
