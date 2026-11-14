@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.tenantmanager.domain.calculator.RentCalculatorTest" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-11-14T15:08:09" hostname="DESKTOP-VN0NG9R" time="0.007">
+  <properties/>
+  <testcase name="testArchivedTenant_statusAndNextPaymentDate" classname="com.tenantmanager.domain.calculator.RentCalculatorTest" time="0.001"/>
+  <testcase name="testAllPeriodsPaid_nextMonthDueDate" classname="com.tenantmanager.domain.calculator.RentCalculatorTest" time="0.0"/>
+  <testcase name="testPartialPaymentInPeriod" classname="com.tenantmanager.domain.calculator.RentCalculatorTest" time="0.0"/>
+  <testcase name="testExactPaymentInPeriod" classname="com.tenantmanager.domain.calculator.RentCalculatorTest" time="0.0"/>
+  <testcase name="testOverpaymentCarriedForwardAcrossMultiplePeriods" classname="com.tenantmanager.domain.calculator.RentCalculatorTest" time="0.002"/>
+  <testcase name="testTenantJoiningSameMonthAsToday" classname="com.tenantmanager.domain.calculator.RentCalculatorTest" time="0.001"/>
+  <testcase name="testNextPaymentDateWhenPastOverdueExists" classname="com.tenantmanager.domain.calculator.RentCalculatorTest" time="0.0"/>
+  <testcase name="testMidMonthJoinDate_withManualProration" classname="com.tenantmanager.domain.calculator.RentCalculatorTest" time="0.001"/>
+  <testcase name="testStatusUpcoming" classname="com.tenantmanager.domain.calculator.RentCalculatorTest" time="0.0"/>
+  <testcase name="testGracePeriodBoundary_oneDayAfter" classname="com.tenantmanager.domain.calculator.RentCalculatorTest" time="0.0"/>
+  <testcase name="testGracePeriodBoundary_onTheDay" classname="com.tenantmanager.domain.calculator.RentCalculatorTest" time="0.001"/>
+  <testcase name="testLeftTenant_statusAndNextPaymentDate" classname="com.tenantmanager.domain.calculator.RentCalculatorTest" time="0.0"/>
+  <testcase name="testArchivedTenantExcludedFromPortfolioTotals" classname="com.tenantmanager.domain.calculator.RentCalculatorTest" time="0.0"/>
+  <testcase name="testMidMonthJoinDate_firstPeriodDueOnJoinDateIfDueDayPassed" classname="com.tenantmanager.domain.calculator.RentCalculatorTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
