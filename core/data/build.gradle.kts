@@ -30,6 +30,11 @@ android {
             isIncludeAndroidResources = true
         }
     }
+
+    sourceSets {
+        getByName("test").assets.srcDirs("$projectDir/schemas")
+        getByName("androidTest").assets.srcDirs("$projectDir/schemas")
+    }
 }
 
 ksp {
