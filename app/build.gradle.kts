@@ -63,6 +63,9 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
 
+    implementation(libs.room.runtime)
+    implementation(libs.androidx.datastore.preferences)
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
