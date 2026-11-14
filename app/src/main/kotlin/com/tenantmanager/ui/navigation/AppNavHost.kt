@@ -35,6 +35,7 @@ import com.tenantmanager.domain.model.Payment
 import com.tenantmanager.domain.model.TenantLedger
 import com.tenantmanager.ui.dashboard.DashboardScreen
 import com.tenantmanager.ui.dashboard.DashboardViewModel
+import com.tenantmanager.ui.onboarding.OnboardingScreen
 import com.tenantmanager.ui.payments.PaymentsListScreen
 import com.tenantmanager.ui.payments.PaymentsViewModel
 import com.tenantmanager.ui.payments.RecordPaymentDialog
@@ -97,6 +98,18 @@ fun AppNavHost(
 
     val isTopLevelRoute = bottomNavItems.any { it.destination.route == currentRoute }
 
+    if (!settingsState.onboardingCompleted) {
+        OnboardingScreen(
+            onComplete = {
+                coroutineScope.launch {
+                    container.settingsRepository.updateOnboardingCompleted(true)
+                }
+            },
+            modifier = modifier
+        )
+        return
+    }
+
     Scaffold(
         bottomBar = {
             if (isTopLevelRoute) {
@@ -153,6 +166,7 @@ fun AppNavHost(
                 val viewModel: TenantsViewModel = viewModel(
                     factory = TenantsViewModel.provideFactory(
                         container.tenantRepository,
+                        container.propertyRepository,
                         container.paymentRepository,
                         container.settingsRepository
                     )
@@ -279,11 +293,12 @@ fun AppNavHost(
         }
     }
 
-    // Modal Record Payment Dialog
+    // Modal Record Payment Sheet
     if (activePaymentLedger != null) {
-        RecordPaymentDialog(
+        com.tenantmanager.ui.payments.RecordPaymentBottomSheet(
             ledger = activePaymentLedger!!,
             currencySymbol = settingsState.currencySymbol,
+            hapticFeedbackEnabled = settingsState.hapticFeedbackEnabled,
             onConfirmPayment = { payment ->
                 coroutineScope.launch {
                     container.paymentRepository.insertPayment(payment)

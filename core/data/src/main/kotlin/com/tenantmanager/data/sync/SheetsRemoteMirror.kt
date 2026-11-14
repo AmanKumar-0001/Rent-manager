@@ -23,7 +23,7 @@ class SheetsRemoteMirror(
 
                 // 3. Find or create spreadsheet via drive.file scope
                 val spreadsheetRef = apiClient.findOrCreateSpreadsheet(
-                    title = "Tenant Manager",
+                    title = "Collect Your Rent - Data",
                     tabTitles = tabs.map { it.title },
                     accessToken = accessToken
                 )

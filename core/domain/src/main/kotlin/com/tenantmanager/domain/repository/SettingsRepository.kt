@@ -6,7 +6,9 @@ data class AppSettings(
     val currencySymbol: String = "₹",
     val graceDays: Int = 5,
     val reminderHour: Int = 9,
-    val appLockEnabled: Boolean = false
+    val appLockEnabled: Boolean = false,
+    val hapticFeedbackEnabled: Boolean = true,
+    val onboardingCompleted: Boolean = false
 )
 
 interface SettingsRepository {
@@ -15,5 +17,7 @@ interface SettingsRepository {
     suspend fun updateGraceDays(days: Int)
     suspend fun updateReminderHour(hour: Int)
     suspend fun updateAppLockEnabled(enabled: Boolean)
+    suspend fun updateHapticFeedbackEnabled(enabled: Boolean)
+    suspend fun updateOnboardingCompleted(completed: Boolean)
 }
 

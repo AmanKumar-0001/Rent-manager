@@ -93,6 +93,12 @@ class SettingsViewModel(
         }
     }
 
+    fun updateHapticFeedback(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateHapticFeedbackEnabled(enabled)
+        }
+    }
+
     fun exportPlaintextBackup() {
         viewModelScope.launch {
             try {

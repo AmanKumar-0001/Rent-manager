@@ -26,7 +26,7 @@ class BootReceiver : BroadcastReceiver() {
 
                     ReminderScheduler.scheduleDailyReminder(context, reminderHour)
                 } finally {
-                    pendingResult.finish()
+                    pendingResult?.finish()
                 }
             }
         }

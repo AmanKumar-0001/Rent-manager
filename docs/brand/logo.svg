@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#145A32" />
+      <stop offset="100%" stop-color="#0A3622" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FBBF24" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+    <filter id="subtleShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-opacity="0.25" flood-color="#000000" />
+    </filter>
+  </defs>
+
+  <!-- Squircle Base Canvas -->
+  <rect width="512" height="512" rx="116" fill="url(#emeraldGrad)" />
+
+  <!-- Inner Architectural Structure (House Contour) -->
+  <!-- Roof Gables -->
+  <path d="M 256 100 L 126 215 C 120 220, 122 230, 130 230 L 152 230 L 152 384 C 152 392, 158 398, 166 398 L 346 398 C 354 398, 360 392, 360 384 L 360 230 L 382 230 C 390 230, 392 220, 386 215 Z"
+        fill="#FFFFFF"
+        filter="url(#subtleShadow)" />
+
+  <!-- Arched Threshold / Doorway in House -->
+  <path d="M 212 398 L 212 305 C 212 280, 300 280, 300 305 L 300 398 Z"
+        fill="#0D4B29" />
+
+  <!-- Coin Accent with Rupee Glyph -->
+  <!-- Radiant Coin centered at (256, 260) with radius 56 -->
+  <circle cx="256" cy="264" r="58" fill="url(#goldGrad)" filter="url(#subtleShadow)" stroke="#B45309" stroke-width="4" />
+  <circle cx="256" cy="264" r="50" fill="none" stroke="#FDE68A" stroke-width="2" stroke-dasharray="4 3" />
+
+  <!-- Indian Rupee Glyph (₹) on Coin -->
+  <!-- Drawn with precision vector paths for sharp rasterization at all resolutions -->
+  <g fill="#FFFFFF">
+    <!-- Top horizontal bar -->
+    <rect x="236" y="235" width="40" height="6.5" rx="3.25" />
+    <!-- Second horizontal bar -->
+    <rect x="236" y="247.5" width="37" height="6.5" rx="3.25" />
+    <!-- Vertical stem and upper loop -->
+    <path d="M 246 235 L 246 270 C 259 270, 269 265, 269 253 C 269 242, 258 242, 246 242 Z M 240 235 L 246 235 L 246 293 L 240 293 Z" />
+    <!-- Diagonal leg -->
+    <path d="M 250 268 L 273 293 C 275 295, 278 295, 280 293 C 282 291, 282 288, 280 286 L 258 262 Z" />
+  </g>
+</svg>
+

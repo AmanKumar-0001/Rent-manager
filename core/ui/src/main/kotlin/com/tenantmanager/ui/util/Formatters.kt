@@ -15,6 +15,19 @@ object Formatters {
         return date?.format(displayDateFormatter) ?: "—"
     }
 
+    fun formatDisplayDate(date: LocalDate?): String {
+        return formatDate(date)
+    }
+
+    fun formatDisplayDate(dateIsoString: String?): String {
+        if (dateIsoString == null) return "—"
+        return try {
+            LocalDate.parse(dateIsoString).format(displayDateFormatter)
+        } catch (e: Exception) {
+            dateIsoString
+        }
+    }
+
     fun formatPeriodMonth(month: YearMonth): String {
         return month.format(displayMonthFormatter)
     }
@@ -23,4 +36,3 @@ object Formatters {
         return money.formatINR(symbol)
     }
 }
-

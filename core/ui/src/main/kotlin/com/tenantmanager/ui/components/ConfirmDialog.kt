@@ -20,6 +20,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
+fun ConfirmationDialog(
+    title: String,
+    message: String,
+    confirmButtonText: String = "Confirm",
+    dismissButtonText: String = "Cancel",
+    isDestructive: Boolean = false,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    ConfirmDialog(
+        title = title,
+        message = message,
+        confirmButtonText = confirmButtonText,
+        dismissButtonText = dismissButtonText,
+        isDestructive = isDestructive,
+        onConfirm = onConfirm,
+        onDismiss = onDismiss
+    )
+}
+
+@Composable
 fun ConfirmDialog(
     title: String,
     message: String,

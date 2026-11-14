@@ -1,5 +1,6 @@
 package com.tenantmanager.ui.payments
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,8 +9,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
@@ -35,8 +38,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.tenantmanager.ui.components.ConfirmDialog
-import com.tenantmanager.ui.components.EmptyStateView
+import com.tenantmanager.ui.components.ConfirmationDialog
+import com.tenantmanager.ui.components.EmptyState
+import com.tenantmanager.ui.components.MoneyText
 import com.tenantmanager.ui.util.Formatters
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,9 +87,13 @@ fun PaymentsListScreen(
             )
 
             if (uiState.payments.isEmpty()) {
-                EmptyStateView(
+                EmptyState(
                     title = if (uiState.searchQuery.isNotBlank()) "No Matching Payments" else "No Payments Recorded",
-                    description = if (uiState.searchQuery.isNotBlank()) "No payments matched your search query." else "When you record rent payments, they will show up here chronologically.",
+                    description = if (uiState.searchQuery.isNotBlank()) {
+                        "No payments matched your search query."
+                    } else {
+                        "When you record rent payments, they will show up here chronologically."
+                    },
                     icon = Icons.Default.Payment,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -98,8 +106,12 @@ fun PaymentsListScreen(
                 ) {
                     items(uiState.payments, key = { it.payment.id }) { item ->
                         Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onNavigateToTenantDetail(item.payment.tenantId) },
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                         ) {
                             Row(
                                 modifier = Modifier
@@ -109,8 +121,9 @@ fun PaymentsListScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = Formatters.formatCurrency(item.payment.amount, symbol),
+                                    MoneyText(
+                                        amount = item.payment.amount,
+                                        symbol = symbol,
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.primary
@@ -121,7 +134,7 @@ fun PaymentsListScreen(
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
-                                        text = "Paid on ${Formatters.formatDate(item.payment.paidDate)} • Period: ${Formatters.formatPeriodMonth(item.payment.periodMonth)}",
+                                        text = "Paid on ${Formatters.formatDisplayDate(item.payment.paidDate)} • Period ${Formatters.formatPeriodMonth(item.payment.periodMonth)}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -134,11 +147,15 @@ fun PaymentsListScreen(
                                     }
                                 }
 
-                                IconButton(onClick = { paymentToDelete = item }) {
+                                IconButton(
+                                    onClick = { paymentToDelete = item },
+                                    modifier = Modifier.size(44.dp)
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.Delete,
-                                        contentDescription = "Delete payment",
-                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                                        contentDescription = "Delete payment of ${item.payment.amount}",
+                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
                             }
@@ -153,9 +170,9 @@ fun PaymentsListScreen(
     }
 
     if (paymentToDelete != null) {
-        ConfirmDialog(
+        ConfirmationDialog(
             title = "Delete Payment Record?",
-            message = "Are you sure you want to delete payment of ${Formatters.formatCurrency(paymentToDelete!!.payment.amount, symbol)} for ${paymentToDelete!!.tenantName}? The ledger will be recalculated.",
+            message = "Are you sure you want to delete payment of ${Formatters.formatCurrency(paymentToDelete!!.payment.amount, symbol)} for ${paymentToDelete!!.tenantName}? The ledger will be recalculated immediately.",
             confirmButtonText = "Delete Payment",
             isDestructive = true,
             onConfirm = {
@@ -167,4 +184,3 @@ fun PaymentsListScreen(
         )
     }
 }
-

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- House Silhouette -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,25 L27,48 C25.5,49.2 26,51.5 27.8,51.5 L34,51.5 L34,82 C34,83.5 35.5,85 37,85 L71,85 C72.5,85 74,83.5 74,82 L74,51.5 L80.2,51.5 C82,51.5 82.5,49.2 81,48 Z" />
+
+    <!-- Coin cut-out & Rupee glyph -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:pathData="M54,46 A12,12 0 1,0 54,70 A12,12 0 1,0 54,46 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,52 h8 v1.5 h-8 z M50,54.5 h7.2 v1.5 h-7.2 z M52,52 h1.8 v11 h-1.8 z M53.8,58.5 L58.5,63.5 L60.2,63.5 L55.2,58 Z" />
+</vector>
+

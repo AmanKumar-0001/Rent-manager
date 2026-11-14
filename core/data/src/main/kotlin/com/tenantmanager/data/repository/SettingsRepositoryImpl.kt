@@ -20,6 +20,8 @@ class SettingsRepositoryImpl(
         val GRACE_DAYS = intPreferencesKey("grace_days")
         val REMINDER_HOUR = intPreferencesKey("reminder_hour")
         val APP_LOCK_ENABLED = booleanPreferencesKey("app_lock_enabled")
+        val HAPTIC_FEEDBACK_ENABLED = booleanPreferencesKey("haptic_feedback_enabled")
+        val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     }
 
     override fun getSettings(): Flow<AppSettings> {
@@ -28,7 +30,9 @@ class SettingsRepositoryImpl(
                 currencySymbol = preferences[PreferencesKeys.CURRENCY_SYMBOL] ?: "₹",
                 graceDays = preferences[PreferencesKeys.GRACE_DAYS] ?: 5,
                 reminderHour = preferences[PreferencesKeys.REMINDER_HOUR] ?: 9,
-                appLockEnabled = preferences[PreferencesKeys.APP_LOCK_ENABLED] ?: false
+                appLockEnabled = preferences[PreferencesKeys.APP_LOCK_ENABLED] ?: false,
+                hapticFeedbackEnabled = preferences[PreferencesKeys.HAPTIC_FEEDBACK_ENABLED] ?: true,
+                onboardingCompleted = preferences[PreferencesKeys.ONBOARDING_COMPLETED] ?: false
             )
         }
     }
@@ -54,6 +58,18 @@ class SettingsRepositoryImpl(
     override suspend fun updateAppLockEnabled(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.APP_LOCK_ENABLED] = enabled
+        }
+    }
+
+    override suspend fun updateHapticFeedbackEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.HAPTIC_FEEDBACK_ENABLED] = enabled
+        }
+    }
+
+    override suspend fun updateOnboardingCompleted(completed: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.ONBOARDING_COMPLETED] = completed
         }
     }
 }

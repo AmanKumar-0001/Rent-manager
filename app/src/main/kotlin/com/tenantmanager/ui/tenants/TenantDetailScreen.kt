@@ -16,28 +16,27 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Payment
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -54,11 +53,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tenantmanager.domain.model.Money
 import com.tenantmanager.domain.model.RentalPeriod
-import com.tenantmanager.ui.components.ConfirmDialog
+import com.tenantmanager.domain.model.TenantStatus
+import com.tenantmanager.ui.components.ConfirmationDialog
+import com.tenantmanager.ui.components.MoneyText
 import com.tenantmanager.ui.components.PeriodStatusChip
+import com.tenantmanager.ui.components.PrimaryActionBar
+import com.tenantmanager.ui.components.SectionHeader
 import com.tenantmanager.ui.components.StatusChip
 import com.tenantmanager.ui.util.Formatters
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,7 +88,7 @@ fun TenantDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(tenant?.name ?: "Tenant Detail", fontWeight = FontWeight.Bold) },
+                title = { Text(tenant?.name ?: "Tenant Details", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -94,7 +100,7 @@ fun TenantDetailScreen(
                             Icon(Icons.Default.Edit, contentDescription = "Edit Tenant")
                         }
                         IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Options")
+                            Icon(Icons.Default.MoreVert, contentDescription = "More Options")
                         }
                         DropdownMenu(
                             expanded = showMenu,
@@ -116,22 +122,11 @@ fun TenantDetailScreen(
         },
         bottomBar = {
             if (tenant != null && !tenant.isArchived) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Button(
-                        onClick = { onRecordPayment(tenant.id) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
-                    ) {
-                        Icon(Icons.Default.Payment, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Record Payment", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
+                PrimaryActionBar(
+                    primaryText = "Record Payment",
+                    primaryIcon = Icons.Default.Payment,
+                    onPrimaryClick = { onRecordPayment(tenant.id) }
+                )
             }
         },
         modifier = modifier
@@ -143,7 +138,10 @@ fun TenantDetailScreen(
                     .padding(innerPadding),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Tenant not found", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = if (uiState.isLoading) "Loading tenant..." else "Tenant not found",
+                    style = MaterialTheme.typography.bodyLarge
+                )
             }
         } else {
             LazyColumn(
@@ -153,36 +151,64 @@ fun TenantDetailScreen(
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Profile & Status Header
+                // 1. Hero Tenant Profile Header
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.Top
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = tenant.name,
-                                        style = MaterialTheme.typography.headlineMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = "Unit ${tenant.unitName}" + (uiState.property?.let { " • ${it.name}" } ?: ""),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    val initial = tenant.name.firstOrNull()?.uppercase() ?: "T"
+                                    Box(
+                                        modifier = Modifier
+                                            .size(52.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.primaryContainer),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = initial,
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+
+                                    Column {
+                                        Text(
+                                            text = tenant.name,
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        val unitDetails = buildString {
+                                            append("Unit ${tenant.unitName}")
+                                            uiState.property?.let { append(" • ${it.name}") }
+                                        }
+                                        Text(
+                                            text = unitDetails,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
+
                                 StatusChip(status = ledger.status)
                             }
 
-                            Spacer(modifier = Modifier.height(14.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                            // Contact Buttons
+                            // Contact Action Buttons (min 48dp target)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -192,11 +218,13 @@ fun TenantDetailScreen(
                                         val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${tenant.phone}"))
                                         context.startActivity(intent)
                                     },
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
                                 ) {
-                                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Call", fontSize = 12.sp)
+                                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Call", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 }
 
                                 FilledTonalButton(
@@ -204,11 +232,13 @@ fun TenantDetailScreen(
                                         val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${tenant.phone}"))
                                         context.startActivity(intent)
                                     },
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
                                 ) {
-                                    Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("SMS", fontSize = 12.sp)
+                                    Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("SMS", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 }
 
                                 if (!tenant.email.isNullOrBlank()) {
@@ -217,11 +247,13 @@ fun TenantDetailScreen(
                                             val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:${tenant.email}"))
                                             context.startActivity(intent)
                                         },
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(48.dp)
                                     ) {
-                                        Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Email", fontSize = 12.sp)
+                                        Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Email", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                             }
@@ -229,75 +261,208 @@ fun TenantDetailScreen(
                     }
                 }
 
-                // Rental Agreement Details
+                // 2. Next Payment & Outstanding Balance Hero Card
                 item {
-                    Text("Rental Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            DetailRow("Monthly Rent", Formatters.formatCurrency(tenant.monthlyRent, symbol))
-                            DetailRow("Payment Due Day", "${tenant.dueDay}${getDaySuffix(tenant.dueDay)} of month" + if (tenant.dueDay == 31) " (Last Day)" else "")
-                            DetailRow("Joined On", Formatters.formatDate(tenant.joinDate))
-                            if (tenant.leaveDate != null) {
-                                DetailRow("Leave Date", Formatters.formatDate(tenant.leaveDate))
+                    val nextDate = ledger.nextPaymentDate
+                    val today = LocalDate.now()
+                    val daysDiff = if (nextDate != null) ChronoUnit.DAYS.between(today, nextDate) else null
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "Next Payment Due",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(top = 2.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.CalendarToday,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (nextDate != null) Formatters.formatDisplayDate(nextDate) else "No upcoming due",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
+                                if (daysDiff != null) {
+                                    val badgeText = when {
+                                        daysDiff < 0 -> "${-daysDiff} days overdue"
+                                        daysDiff == 0L -> "Due today"
+                                        daysDiff == 1L -> "Due tomorrow"
+                                        else -> "In $daysDiff days"
+                                    }
+                                    val badgeColor = if (daysDiff < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                    Text(
+                                        text = badgeText,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = badgeColor
+                                    )
+                                }
                             }
-                            if (tenant.securityDeposit.isPositive) {
-                                DetailRow("Security Deposit", Formatters.formatCurrency(tenant.securityDeposit, symbol))
+
+                            if (ledger.totalBalance.isPositive) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Outstanding Balance",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                    MoneyText(
+                                        amount = ledger.totalBalance,
+                                        symbol = symbol,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
                             }
-                            tenant.notes?.takeIf { it.isNotBlank() }?.let { notes ->
-                                DetailRow("Notes", notes)
-                            }
-                            DetailRow("Total Outstanding Balance", Formatters.formatCurrency(ledger.totalBalance, symbol))
                         }
                     }
                 }
 
-                // Month-by-month Ledger Table
+                // 3. Rental Agreement Details
                 item {
-                    Text("Month-by-Month Ledger", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(6.dp))
+                    SectionHeader(title = "Agreement Details")
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            AgreementRow(label = "Monthly Rent") {
+                                MoneyText(
+                                    amount = tenant.monthlyRent,
+                                    symbol = symbol,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            AgreementRow(
+                                label = "Due Day",
+                                textValue = "${tenant.dueDay}${getDaySuffix(tenant.dueDay)} of month" + if (tenant.dueDay == 31) " (Last Day)" else ""
+                            )
+                            AgreementRow(
+                                label = "Joined On",
+                                textValue = Formatters.formatDisplayDate(tenant.joinDate)
+                            )
+                            if (tenant.leaveDate != null) {
+                                AgreementRow(
+                                    label = "Leave Date",
+                                    textValue = Formatters.formatDisplayDate(tenant.leaveDate)
+                                )
+                            }
+                            if (tenant.securityDeposit.isPositive) {
+                                AgreementRow(label = "Security Deposit") {
+                                    MoneyText(
+                                        amount = tenant.securityDeposit,
+                                        symbol = symbol,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            tenant.notes?.takeIf { it.isNotBlank() }?.let { notes ->
+                                AgreementRow(label = "Notes", textValue = notes)
+                            }
+                        }
+                    }
+                }
+
+                // 4. Month-by-month Ledger Table
+                item {
+                    SectionHeader(
+                        title = "Monthly Rent Ledger",
+                        count = ledger.periods.size
+                    )
                 }
 
                 items(ledger.periods.reversed()) { period ->
                     RentalPeriodCard(period = period, symbol = symbol)
                 }
 
-                // Payment History
+                // 5. Payment Records
                 item {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text("Payment Records (${uiState.payments.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    SectionHeader(
+                        title = "Payment Records",
+                        count = uiState.payments.size
+                    )
                 }
 
                 if (uiState.payments.isEmpty()) {
                     item {
-                        Text(
-                            text = "No payments recorded yet for this tenant.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No payments recorded yet for this tenant.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 } else {
                     items(uiState.payments, key = { it.id }) { payment ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(12.dp),
+                                    .padding(14.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = Formatters.formatCurrency(payment.amount, symbol),
+                                    MoneyText(
+                                        amount = payment.amount,
+                                        symbol = symbol,
                                         style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
-                                        text = "Paid on ${Formatters.formatDate(payment.paidDate)} • Period: ${payment.periodMonth}",
+                                        text = "Paid on ${Formatters.formatDisplayDate(payment.paidDate)} • Period ${payment.periodMonth}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -310,11 +475,15 @@ fun TenantDetailScreen(
                                     }
                                 }
 
-                                IconButton(onClick = { paymentToDeleteId = payment.id }) {
+                                IconButton(
+                                    onClick = { paymentToDeleteId = payment.id },
+                                    modifier = Modifier.size(44.dp)
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.Delete,
-                                        contentDescription = "Delete payment",
-                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                                        contentDescription = "Delete payment of ${payment.amount}",
+                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
                             }
@@ -323,17 +492,18 @@ fun TenantDetailScreen(
                 }
 
                 item {
-                    Spacer(modifier = Modifier.height(72.dp))
+                    Spacer(modifier = Modifier.height(88.dp))
                 }
             }
         }
     }
 
     if (showMarkAsLeftDialog) {
-        ConfirmDialog(
+        ConfirmationDialog(
             title = "Mark Tenant as Left?",
-            message = "This will archive the tenant and stop future rent periods. Historical payment records and ledgers are preserved.",
+            message = "This will archive the tenant and stop future rent periods. All historical payment records and ledgers will be safely preserved.",
             confirmButtonText = "Mark as Left",
+            isDestructive = false,
             onConfirm = {
                 showMarkAsLeftDialog = false
                 viewModel.markAsLeft()
@@ -343,9 +513,9 @@ fun TenantDetailScreen(
     }
 
     if (paymentToDeleteId != null) {
-        ConfirmDialog(
+        ConfirmationDialog(
             title = "Delete Payment Record?",
-            message = "Are you sure you want to delete this payment record? The tenant's ledger balance will be recalculated immediately.",
+            message = "Are you sure you want to delete this payment record? The tenant's ledger and outstanding balance will be recalculated immediately.",
             confirmButtonText = "Delete",
             isDestructive = true,
             onConfirm = {
@@ -361,13 +531,30 @@ fun TenantDetailScreen(
 }
 
 @Composable
-private fun DetailRow(label: String, value: String) {
+private fun AgreementRow(
+    label: String,
+    textValue: String? = null,
+    content: (@Composable () -> Unit)? = null
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(text = value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (textValue != null) {
+            Text(
+                text = textValue,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+        } else if (content != null) {
+            content()
+        }
     }
 }
 
@@ -375,9 +562,11 @@ private fun DetailRow(label: String, value: String) {
 private fun RentalPeriodCard(period: RentalPeriod, symbol: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -390,25 +579,70 @@ private fun RentalPeriodCard(period: RentalPeriod, symbol: String) {
                 )
                 PeriodStatusChip(status = period.status)
             }
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Due: ${Formatters.formatDate(period.dueDate)}", style = MaterialTheme.typography.bodySmall)
-                Text("Expected: ${Formatters.formatCurrency(period.expectedRent, symbol)}", style = MaterialTheme.typography.bodySmall)
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("Paid: ${Formatters.formatCurrency(period.totalPaid, symbol)}" + if (period.creditApplied.isPositive) " (incl. credit ${Formatters.formatCurrency(period.creditApplied, symbol)})" else "", style = MaterialTheme.typography.bodySmall)
                 Text(
-                    text = "Balance: ${Formatters.formatCurrency(period.balance, symbol)}",
+                    text = "Due: ${Formatters.formatDisplayDate(period.dueDate)}",
                     style = MaterialTheme.typography.bodySmall,
-                    fontWeight = if (period.balance.isPositive) FontWeight.Bold else FontWeight.Normal,
-                    color = if (period.balance.isPositive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Expected: ",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    MoneyText(
+                        amount = period.expectedRent,
+                        symbol = symbol,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Paid: ",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    MoneyText(
+                        amount = period.totalPaid,
+                        symbol = symbol,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    if (period.creditApplied.isPositive) {
+                        Text(
+                            text = " (credit applied)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Balance: ",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    MoneyText(
+                        amount = period.balance,
+                        symbol = symbol,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = if (period.balance.isPositive) FontWeight.Bold else FontWeight.SemiBold,
+                        color = if (period.balance.isPositive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
         }
     }
@@ -423,4 +657,3 @@ private fun getDaySuffix(day: Int): String {
         else -> "th"
     }
 }
-

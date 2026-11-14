@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import com.tenantmanager.TenantApplication
@@ -39,6 +40,7 @@ class MainActivity : FragmentActivity() {
     private var isUnlocked by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
@@ -75,7 +77,7 @@ class MainActivity : FragmentActivity() {
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                text = "Tenant Manager is Locked",
+                                text = "Collect Your Rent is Locked",
                                 style = MaterialTheme.typography.titleLarge
                             )
                             Button(onClick = { promptBiometric() }) {
@@ -106,7 +108,7 @@ class MainActivity : FragmentActivity() {
         )
 
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Unlock Tenant Manager")
+            .setTitle("Unlock Collect Your Rent")
             .setSubtitle("Confirm your identity to access tenant records")
             .setAllowedAuthenticators(
                 BiometricManager.Authenticators.BIOMETRIC_STRONG or

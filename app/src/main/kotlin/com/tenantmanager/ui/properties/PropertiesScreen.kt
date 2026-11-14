@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -43,8 +45,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.tenantmanager.domain.model.Property
-import com.tenantmanager.ui.components.ConfirmDialog
-import com.tenantmanager.ui.components.EmptyStateView
+import com.tenantmanager.ui.components.ConfirmationDialog
+import com.tenantmanager.ui.components.EmptyState
+import com.tenantmanager.ui.components.MoneyText
 import com.tenantmanager.ui.util.Formatters
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,7 +86,7 @@ fun PropertiesScreen(
         modifier = modifier
     ) { innerPadding ->
         if (uiState.properties.isEmpty()) {
-            EmptyStateView(
+            EmptyState(
                 title = "No Properties Added",
                 description = "Group your tenants under buildings or properties (e.g. Sunrise Apartments).",
                 icon = Icons.Default.Apartment,
@@ -107,7 +110,9 @@ fun PropertiesScreen(
                 items(uiState.properties, key = { it.property.id }) { item ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                     ) {
                         Row(
                             modifier = Modifier
@@ -130,22 +135,44 @@ fun PropertiesScreen(
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "${item.unitCount} tenant(s) linked" +
-                                            if (item.property.defaultRent.isPositive) " • Base Rent: ${Formatters.formatCurrency(item.property.defaultRent, symbol)}" else "",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "${item.unitCount} tenant(s) linked",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    if (item.property.defaultRent.isPositive) {
+                                        Text(
+                                            text = " • Base: ",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        MoneyText(
+                                            amount = item.property.defaultRent,
+                                            symbol = symbol,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
                             }
 
                             Row {
-                                IconButton(onClick = {
-                                    propertyToEdit = item.property
-                                    showAddEditDialog = true
-                                }) {
+                                IconButton(
+                                    onClick = {
+                                        propertyToEdit = item.property
+                                        showAddEditDialog = true
+                                    },
+                                    modifier = Modifier.size(44.dp)
+                                ) {
                                     Icon(Icons.Default.Edit, contentDescription = "Edit property ${item.property.name}")
                                 }
-                                IconButton(onClick = { propertyToDelete = item }) {
+                                IconButton(
+                                    onClick = { propertyToDelete = item },
+                                    modifier = Modifier.size(44.dp)
+                                ) {
                                     Icon(Icons.Default.Delete, contentDescription = "Delete property ${item.property.name}", tint = MaterialTheme.colorScheme.error)
                                 }
                             }
@@ -153,7 +180,7 @@ fun PropertiesScreen(
                     }
                 }
                 item {
-                    Spacer(modifier = Modifier.height(72.dp))
+                    Spacer(modifier = Modifier.height(80.dp))
                 }
             }
         }
@@ -172,7 +199,7 @@ fun PropertiesScreen(
     }
 
     if (propertyToDelete != null) {
-        ConfirmDialog(
+        ConfirmationDialog(
             title = "Delete Property?",
             message = "Deleting \"${propertyToDelete!!.property.name}\" will unlink ${propertyToDelete!!.unitCount} tenant(s). Tenant records and payments will NOT be deleted.",
             confirmButtonText = "Delete Property",
@@ -255,4 +282,3 @@ private fun AddEditPropertyDialog(
         }
     )
 }
-

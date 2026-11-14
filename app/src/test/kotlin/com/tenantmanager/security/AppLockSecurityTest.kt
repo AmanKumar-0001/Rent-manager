@@ -25,7 +25,7 @@ class AppLockSecurityTest {
     @Test
     fun biometricPrompt_configuresBiometricStrongAndDeviceCredentialFallback() {
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Unlock Tenant Manager")
+            .setTitle("Unlock Collect Your Rent")
             .setSubtitle("Confirm your identity to access tenant records")
             .setAllowedAuthenticators(
                 BiometricManager.Authenticators.BIOMETRIC_STRONG or
@@ -34,7 +34,7 @@ class AppLockSecurityTest {
             .build()
 
         assertNotNull(promptInfo)
-        assertEquals("Unlock Tenant Manager", promptInfo.title)
+        assertEquals("Unlock Collect Your Rent", promptInfo.title)
         val expectedAuthenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or
                 BiometricManager.Authenticators.DEVICE_CREDENTIAL
         assertEquals(expectedAuthenticators, promptInfo.allowedAuthenticators)

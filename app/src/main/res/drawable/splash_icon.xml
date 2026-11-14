@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="160dp"
+    android:viewportWidth="160"
+    android:viewportHeight="160">
+
+    <!-- House Silhouette (Clean White) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M80,35 L40,70 C38,71.5 38.5,74.5 41,74.5 L50,74.5 L50,118 C50,120.2 51.8,122 54,122 L106,122 C108.2,122 110,120.2 110,118 L110,74.5 L119,74.5 C121.5,74.5 122,71.5 120,70 Z" />
+
+    <!-- Arched Threshold (Deep Emerald) -->
+    <path
+        android:fillColor="#0D5C3A"
+        android:pathData="M66,122 L66,94 C66,86 94,86 94,94 L94,122 Z" />
+
+    <!-- Golden Coin Medallion -->
+    <path
+        android:fillColor="#D97706"
+        android:pathData="M80,65 A18,18 0 1,0 80,101 A18,18 0 1,0 80,65 Z" />
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M80,67.5 A15.5,15.5 0 1,0 80,98.5 A15.5,15.5 0 1,0 80,67.5 Z" />
+
+    <!-- Indian Rupee Glyph (₹) in White -->
+    <!-- Top Bar -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M74,74 h12 v2.2 h-12 z" />
+    <!-- Second Bar -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M74,77.5 h11 v2.2 h-11 z" />
+    <!-- Stem and Loop -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M77,74 h2.5 v16 h-2.5 z M77,76 h5 c3.5,0 5.5,1.5 5.5,3.5 c0,2 -2,3.5 -5.5,3.5 h-5 z" />
+    <!-- Diagonal Leg -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M79.5,83 L86,90 L88.5,90 L81.5,82.5 Z" />
+</vector>
+

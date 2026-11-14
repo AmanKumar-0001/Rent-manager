@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
@@ -29,7 +30,6 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.DeleteForever
@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -75,11 +76,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.tenantmanager.notification.ReminderScheduler
-import com.tenantmanager.ui.components.ConfirmDialog
+import com.tenantmanager.ui.components.ConfirmationDialog
 import com.tenantmanager.ui.components.DangerZoneTypedConfirmDialog
+import com.tenantmanager.ui.components.SectionHeader
 import com.tenantmanager.ui.util.Formatters
-import java.time.Instant
-import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -169,11 +169,11 @@ fun SettingsScreen(
             when (event) {
                 is BackupEvent.ExportPlaintextReady -> {
                     pendingExportJson = event.json
-                    createPlaintextFileLauncher.launch("tenant_manager_backup_${System.currentTimeMillis()}.json")
+                    createPlaintextFileLauncher.launch("collect_your_rent_backup_${System.currentTimeMillis()}.json")
                 }
                 is BackupEvent.ExportEncryptedReady -> {
                     pendingExportBytes = event.bytes
-                    createEncryptedFileLauncher.launch("tenant_manager_backup_${System.currentTimeMillis()}.enc")
+                    createEncryptedFileLauncher.launch("collect_your_rent_backup_${System.currentTimeMillis()}.enc")
                 }
                 is BackupEvent.Success -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
@@ -201,9 +201,14 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // General Settings
-            Text("General Preferences", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Card(modifier = Modifier.fillMaxWidth()) {
+            // 1. General Preferences
+            SectionHeader(title = "General Preferences")
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     // Currency
                     Row(
@@ -215,7 +220,7 @@ fun SettingsScreen(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Payments, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.padding(4.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text("Currency Symbol", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                 Text("Format: ${settings.currencySymbol}1,25,000", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -242,27 +247,54 @@ fun SettingsScreen(
                         )
                         Text("Number of buffer days after due date before tenant is marked OVERDUE.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+
+                    HorizontalDivider()
+
+                    // Haptic Feedback Toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.TouchApp, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Haptic Feedback", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text("Tactile response when recording payments and performing key actions", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        Switch(
+                            checked = settings.hapticFeedbackEnabled,
+                            onCheckedChange = viewModel::updateHapticFeedback
+                        )
+                    }
                 }
             }
 
-            // Rent Reminders & Notifications
-            Text("Rent Reminders & Notifications", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Card(modifier = Modifier.fillMaxWidth()) {
+            // 2. Rent Reminders & Notifications
+            SectionHeader(title = "Rent Reminders & Notifications")
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    // Android 13+ Permission Rationale Flow
                     if (!hasNotificationPermission) {
                         Card(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                                    Spacer(modifier = Modifier.padding(4.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
                                     Text("Enable Rent Due Notifications", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                 }
                                 Text(
-                                    "Tenant Manager uses notifications strictly to remind you when rent is due soon or overdue. The app is completely offline and private — notifications contain rent reminders only, with no marketing, tracking, or advertisements.",
+                                    "Collect Your Rent uses notifications strictly to remind you when rent is due soon or overdue. The app is completely offline and private — notifications contain rent reminders only, with no marketing, tracking, or advertisements.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
@@ -281,7 +313,7 @@ fun SettingsScreen(
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.padding(4.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text("Rent reminder notifications are active", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                         }
                     }
@@ -320,15 +352,20 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.NotificationsActive, contentDescription = null)
-                        Spacer(modifier = Modifier.padding(4.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text("Check & Send Reminders Now (Manual Trigger)")
                     }
                 }
             }
 
-            // Security
-            Text("Security & Privacy", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Card(modifier = Modifier.fillMaxWidth()) {
+            // 3. Security
+            SectionHeader(title = "Security & Privacy")
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -337,7 +374,7 @@ fun SettingsScreen(
                     ) {
                         Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.padding(4.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text("App Lock (Biometric / PIN)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                 Text("Require biometric or screen lock on app open", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -351,14 +388,19 @@ fun SettingsScreen(
                 }
             }
 
-            // Google Sheets Sync
-            Text("Google Sheets Sync", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Card(modifier = Modifier.fillMaxWidth()) {
+            // 4. Google Sheets Sync
+            SectionHeader(title = "Google Sheets Sync")
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     if (!viewModel.isSyncSupported) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.CloudOff, contentDescription = null, tint = MaterialTheme.colorScheme.outline)
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text("Offline-Only Flavor", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                 Text("Google Sheets sync is disabled in this local build. The app operates 100% offline with no INTERNET permission.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -367,14 +409,15 @@ fun SettingsScreen(
                     } else {
                         // Clear explanation card before / when using sync
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
                                 Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    "Google Sheets is an optional, push-only mirror. Room on your device remains the single source of truth. Scope is strictly drive.file (app only accesses the 'Tenant Manager' sheet it creates). Government IDs and bank details are NEVER uploaded.",
+                                    "Google Sheets is an optional, push-only mirror. Room on your device remains the single source of truth. Scope is strictly drive.file (app only accesses the 'Collect Your Rent - Data' sheet it creates). Government IDs and bank details are NEVER uploaded.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -520,12 +563,15 @@ fun SettingsScreen(
                 }
             }
 
-            // Manage Properties link
-            Text("Organization", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            // 5. Manage Properties
+            SectionHeader(title = "Organization")
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(onClick = onNavigateToProperties)
+                    .clickable(onClick = onNavigateToProperties),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -536,26 +582,31 @@ fun SettingsScreen(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Apartment, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.padding(4.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text("Manage Properties", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                             Text("Add, rename, or organize rental buildings", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, modifier = Modifier.padding(4.dp))
+                    Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
             }
 
-            // Backup & Restore
-            Text("Backup & Restore", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Card(modifier = Modifier.fillMaxWidth()) {
+            // 6. Backup & Restore
+            SectionHeader(title = "Backup & Restore")
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(
                         onClick = viewModel::exportPlaintextBackup,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.Upload, contentDescription = null)
-                        Spacer(modifier = Modifier.padding(4.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text("Export Backup (JSON)")
                     }
 
@@ -564,7 +615,7 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.Lock, contentDescription = null)
-                        Spacer(modifier = Modifier.padding(4.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text("Export Encrypted Backup (AES-GCM)")
                     }
 
@@ -574,16 +625,17 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.Download, contentDescription = null)
-                        Spacer(modifier = Modifier.padding(4.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text("Restore from Backup")
                     }
                 }
             }
 
-            // Danger Zone
-            Text("Danger Zone", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+            // 7. Danger Zone
+            SectionHeader(title = "Danger Zone")
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f))
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -605,7 +657,7 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.DeleteForever, contentDescription = null)
-                        Spacer(modifier = Modifier.padding(4.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text("Wipe All Application Data")
                     }
                 }
@@ -639,7 +691,7 @@ fun SettingsScreen(
     }
 
     if (showImportConfirmDialog && pendingImportContent != null) {
-        ConfirmDialog(
+        ConfirmationDialog(
             title = "Restore Backup?",
             message = "Restoring this backup will completely replace all existing tenants, properties, and payments on this device. This cannot be undone.",
             confirmButtonText = "Restore & Replace",
@@ -781,4 +833,3 @@ private fun PassphraseInputDialog(
         }
     )
 }
-

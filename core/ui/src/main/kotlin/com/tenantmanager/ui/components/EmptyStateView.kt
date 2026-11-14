@@ -64,3 +64,22 @@ fun EmptyStateView(
     }
 }
 
+@Composable
+fun EmptyState(
+    title: String,
+    description: String,
+    icon: ImageVector = Icons.Default.Info,
+    actionButtonText: String? = null,
+    onActionClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    EmptyStateView(
+        title = title,
+        description = description,
+        icon = icon,
+        actionButtonText = actionButtonText,
+        onActionClick = onActionClick,
+        modifier = modifier
+    )
+}
+

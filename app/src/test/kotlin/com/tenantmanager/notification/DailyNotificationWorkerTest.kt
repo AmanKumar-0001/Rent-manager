@@ -62,6 +62,8 @@ class DailyNotificationWorkerTest {
             override suspend fun updateGraceDays(days: Int) {}
             override suspend fun updateReminderHour(hour: Int) {}
             override suspend fun updateAppLockEnabled(enabled: Boolean) {}
+            override suspend fun updateHapticFeedbackEnabled(enabled: Boolean) {}
+            override suspend fun updateOnboardingCompleted(completed: Boolean) {}
         }
 
         val propRepo = PropertyRepositoryImpl(database.propertyDao())

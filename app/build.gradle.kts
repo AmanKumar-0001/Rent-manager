@@ -56,6 +56,20 @@ android {
             isIncludeAndroidResources = true
         }
     }
+
+    applicationVariants.all {
+        val variant = this
+        outputs.all {
+            val output = this as? com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            val flavorName = variant.flavorName
+            val apkName = if (flavorName == "sheets") {
+                "Collect Your Rent - Sheets.apk"
+            } else {
+                "Collect Your Rent.apk"
+            }
+            output?.outputFileName = apkName
+        }
+    }
 }
 
 dependencies {
@@ -67,6 +81,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

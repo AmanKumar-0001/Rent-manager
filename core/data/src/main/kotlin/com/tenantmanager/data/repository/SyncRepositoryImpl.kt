@@ -39,7 +39,7 @@ class SyncRepositoryImpl(
                 includeNotesInSheet = prefs[Keys.INCLUDE_NOTES] ?: false,
                 autoSyncEnabled = prefs[Keys.AUTO_SYNC] ?: false,
                 spreadsheetId = prefs[Keys.SPREADSHEET_ID],
-                spreadsheetName = prefs[Keys.SPREADSHEET_NAME] ?: "Tenant Manager",
+                spreadsheetName = prefs[Keys.SPREADSHEET_NAME] ?: "Collect Your Rent - Data",
                 lastSyncTimestamp = prefs[Keys.LAST_SYNC_TIME] ?: 0L,
                 lastSyncStatus = prefs[Keys.LAST_SYNC_STATUS]
             )

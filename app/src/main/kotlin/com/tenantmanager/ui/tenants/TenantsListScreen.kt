@@ -1,6 +1,5 @@
 package com.tenantmanager.ui.tenants
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,8 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -19,18 +16,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -38,15 +30,16 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.tenantmanager.domain.model.TenantLedger
-import com.tenantmanager.ui.components.EmptyStateView
-import com.tenantmanager.ui.components.StatusChip
-import com.tenantmanager.ui.util.Formatters
+import com.tenantmanager.domain.model.Tenant
+import com.tenantmanager.ui.components.ConfirmationDialog
+import com.tenantmanager.ui.components.EmptyState
+import com.tenantmanager.ui.components.TenantCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,6 +53,7 @@ fun TenantsListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val symbol = uiState.settings.currencySymbol
+    var tenantToArchive by remember { mutableStateOf<Tenant?>(null) }
 
     Scaffold(
         topBar = {
@@ -91,7 +85,7 @@ fun TenantsListScreen(
             OutlinedTextField(
                 value = uiState.searchQuery,
                 onValueChange = viewModel::onSearchQueryChanged,
-                placeholder = { Text("Search by name or unit...") },
+                placeholder = { Text("Search by name, unit, or property...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
                     if (uiState.searchQuery.isNotEmpty()) {
@@ -121,9 +115,9 @@ fun TenantsListScreen(
                         label = {
                             val label = when (filter) {
                                 TenantFilter.ALL -> "All"
-                                TenantFilter.ACTIVE -> "Active"
                                 TenantFilter.OVERDUE -> "Overdue"
                                 TenantFilter.DUE_SOON -> "Due Soon"
+                                TenantFilter.PAID -> "Paid"
                                 TenantFilter.LEFT -> "Left"
                             }
                             Text(label)
@@ -135,9 +129,13 @@ fun TenantsListScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             if (uiState.ledgers.isEmpty()) {
-                EmptyStateView(
+                EmptyState(
                     title = if (uiState.searchQuery.isNotBlank()) "No Matching Tenants" else "No Tenants Found",
-                    description = if (uiState.searchQuery.isNotBlank()) "Try refining your search or changing the filter." else "Add your first tenant using the + button.",
+                    description = if (uiState.searchQuery.isNotBlank()) {
+                        "Try refining your search query or changing the active filter."
+                    } else {
+                        "Add your first tenant to track rent periods, payments, and balances."
+                    },
                     icon = Icons.Default.People,
                     actionButtonText = if (uiState.searchQuery.isBlank() && uiState.selectedFilter == TenantFilter.ALL) "+ Add Tenant" else null,
                     onActionClick = onNavigateToAddTenant,
@@ -152,93 +150,36 @@ fun TenantsListScreen(
                 ) {
                     items(uiState.ledgers, key = { it.tenant.id }) { ledger ->
                         TenantCard(
-                            ledger = ledger,
-                            symbol = symbol,
-                            onCardClick = { onNavigateToTenantDetail(ledger.tenant.id) },
-                            onRecordPayment = { onRecordPayment(ledger.tenant.id) }
+                            tenant = ledger.tenant,
+                            propertyName = uiState.propertyNames[ledger.tenant.propertyId],
+                            status = ledger.status,
+                            nextPaymentDate = ledger.nextPaymentDate,
+                            currencySymbol = symbol,
+                            onClick = { onNavigateToTenantDetail(ledger.tenant.id) },
+                            onRecordPayment = { onRecordPayment(ledger.tenant.id) },
+                            onArchive = { tenantToArchive = ledger.tenant }
                         )
                     }
                     item {
-                        Spacer(modifier = Modifier.height(72.dp))
+                        Spacer(modifier = Modifier.height(80.dp))
                     }
                 }
             }
         }
     }
-}
 
-@Composable
-private fun TenantCard(
-    ledger: TenantLedger,
-    symbol: String,
-    onCardClick: () -> Unit,
-    onRecordPayment: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onCardClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = ledger.tenant.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Unit: ${ledger.tenant.unitName} • Rent: ${Formatters.formatCurrency(ledger.tenant.monthlyRent, symbol)}/mo",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                StatusChip(status = ledger.status)
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Next Payment: ${Formatters.formatDate(ledger.nextPaymentDate)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium
-                    )
-                    if (ledger.totalBalance.isPositive) {
-                        Text(
-                            text = "Unpaid Balance: ${Formatters.formatCurrency(ledger.totalBalance, symbol)}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                OutlinedButton(
-                    onClick = onRecordPayment,
-                    modifier = Modifier.height(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Payment,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Pay", fontSize = 13.sp)
-                }
-            }
-        }
+    // Confirmation dialog for archiving tenant
+    tenantToArchive?.let { tenant ->
+        ConfirmationDialog(
+            title = "Archive Tenant",
+            message = "Are you sure you want to archive ${tenant.name}? Rent calculation will stop as of today. You can reactivate this tenant later by editing their details.",
+            confirmButtonText = "Archive",
+            isDestructive = false,
+            onConfirm = {
+                viewModel.archiveTenant(tenant.id)
+                tenantToArchive = null
+            },
+            onDismiss = { tenantToArchive = null }
+        )
     }
 }
-

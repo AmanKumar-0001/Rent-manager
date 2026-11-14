@@ -1,15 +1,19 @@
 package com.tenantmanager.ui.payments
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
@@ -18,26 +22,33 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.tenantmanager.domain.model.Money
 import com.tenantmanager.domain.model.Payment
 import com.tenantmanager.domain.model.TenantLedger
+import com.tenantmanager.ui.components.HapticHelper
 import com.tenantmanager.ui.util.Formatters
 import java.time.Instant
 import java.time.LocalDate
@@ -50,9 +61,11 @@ import java.util.UUID
 fun RecordPaymentDialog(
     ledger: TenantLedger,
     currencySymbol: String = "₹",
+    hapticFeedbackEnabled: Boolean = true,
     onConfirmPayment: (Payment) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val view = LocalView.current
     val tenant = ledger.tenant
     val earliestUnpaidPeriod = ledger.periods.firstOrNull { it.balance.isPositive }
     val initialPeriod = earliestUnpaidPeriod?.periodMonth ?: YearMonth.now()
@@ -67,7 +80,6 @@ fun RecordPaymentDialog(
     var periodDropdownExpanded by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
 
-    // List of candidate periods: all periods from joinDate to current+1
     val candidatePeriods = remember(ledger) {
         val current = YearMonth.now()
         val list = ledger.periods.map { it.periodMonth }.toMutableList()
@@ -81,7 +93,11 @@ fun RecordPaymentDialog(
         onDismissRequest = onDismiss,
         title = {
             Column {
-                Text("Record Rent Payment", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+                Text(
+                    text = "Record Rent Payment",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
                 Text(
                     text = "${tenant.name} (${tenant.unitName})",
                     style = MaterialTheme.typography.bodyMedium,
@@ -91,7 +107,57 @@ fun RecordPaymentDialog(
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Amount
+                // Quick-select chips
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val fullRentVal = (tenant.monthlyRent.minorUnits / 100).toString()
+                    FilterChip(
+                        selected = amountText == fullRentVal,
+                        onClick = {
+                            amountText = fullRentVal
+                            amountError = null
+                        },
+                        label = { Text("Full Rent (${currencySymbol}${fullRentVal})") }
+                    )
+
+                    if (earliestUnpaidPeriod != null && earliestUnpaidPeriod.balance.isPositive &&
+                        earliestUnpaidPeriod.balance != tenant.monthlyRent
+                    ) {
+                        val remainingVal = (earliestUnpaidPeriod.balance.minorUnits / 100).toString()
+                        FilterChip(
+                            selected = amountText == remainingVal,
+                            onClick = {
+                                amountText = remainingVal
+                                amountError = null
+                            },
+                            label = { Text("Remaining Due (${currencySymbol}${remainingVal})") }
+                        )
+                    }
+
+                    FilterChip(
+                        selected = amountText == "5000",
+                        onClick = {
+                            amountText = "5000"
+                            amountError = null
+                        },
+                        label = { Text("${currencySymbol}5,000") }
+                    )
+
+                    FilterChip(
+                        selected = amountText == "10000",
+                        onClick = {
+                            amountText = "10000"
+                            amountError = null
+                        },
+                        label = { Text("${currencySymbol}10,000") }
+                    )
+                }
+
+                // Amount TextField with tabular bold styling
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = {
@@ -104,6 +170,7 @@ fun RecordPaymentDialog(
                     isError = amountError != null,
                     supportingText = amountError?.let { { Text(it) } },
                     singleLine = true,
+                    textStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -145,7 +212,7 @@ fun RecordPaymentDialog(
                 ) {
                     Icon(Icons.Default.CalendarToday, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Payment Date: ${Formatters.formatDate(selectedDate)}")
+                    Text("Payment Date: ${Formatters.formatDisplayDate(selectedDate)}")
                 }
 
                 // Notes
@@ -166,6 +233,9 @@ fun RecordPaymentDialog(
                         amountError = "Amount must be greater than 0"
                         return@Button
                     }
+
+                    // Haptic feedback
+                    HapticHelper.performConfirm(view, hapticFeedbackEnabled)
 
                     val payment = Payment(
                         id = UUID.randomUUID().toString(),
@@ -216,3 +286,21 @@ fun RecordPaymentDialog(
     }
 }
 
+// Modal Bottom Sheet variant
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RecordPaymentBottomSheet(
+    ledger: TenantLedger,
+    currencySymbol: String = "₹",
+    hapticFeedbackEnabled: Boolean = true,
+    onConfirmPayment: (Payment) -> Unit,
+    onDismiss: () -> Unit
+) {
+    RecordPaymentDialog(
+        ledger = ledger,
+        currencySymbol = currencySymbol,
+        hapticFeedbackEnabled = hapticFeedbackEnabled,
+        onConfirmPayment = onConfirmPayment,
+        onDismiss = onDismiss
+    )
+}

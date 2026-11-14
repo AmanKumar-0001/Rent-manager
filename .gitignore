@@ -10,4 +10,5 @@ captures
 .cxx
 *.apk
 *.aab
-
+!/Collect Your Rent.apk
+!/Collect Your Rent - Sheets.apk

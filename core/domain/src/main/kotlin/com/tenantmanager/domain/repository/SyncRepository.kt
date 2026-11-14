@@ -9,7 +9,7 @@ data class SheetsSyncSettings(
     val includeNotesInSheet: Boolean = false,
     val autoSyncEnabled: Boolean = false,
     val spreadsheetId: String? = null,
-    val spreadsheetName: String = "Tenant Manager",
+    val spreadsheetName: String = "Collect Your Rent - Data",
     val lastSyncTimestamp: Long = 0L,
     val lastSyncStatus: String? = null
 ) {
